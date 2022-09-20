@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" binding="early" xmlns:qt="http://www.qt.io/2015/02/scxml-ext" name="smart_blinds" qt:editorversion="7.0.0" initial="Booting">
+    <qt:editorinfo initialGeometry="462.53;-101.04;-20;-20;40;40"/>
+    <state id="LoadConfiguration">
+        <qt:editorinfo geometry="427.21;182.68;-60;-50;190.64;100" scenegeometry="427.21;182.68;367.21;132.68;190.64;100"/>
+        <transition type="external" event="CONFIGURED" target="PrepareDevice">
+            <qt:editorinfo movePoint="44.91;6.12"/>
+        </transition>
+        <invoke srcexpr="onLoadConfiguration"/>
+        <transition type="external" event="CONFIG_NOT_AVAILABLE" target="WaitingInitialConfig">
+            <qt:editorinfo movePoint="7.40;-22.45"/>
+        </transition>
+    </state>
+    <state id="ConnectingToWiFi">
+        <qt:editorinfo geometry="565.60;345.95;-235.75;-50;265.36;100" scenegeometry="565.60;345.95;329.85;295.95;265.36;100"/>
+        <transition type="external" event="WIFI_CONNECTED" target="Operable">
+            <qt:editorinfo startTargetFactors="93.70;52.86" endTargetFactors="2.21;41.65"/>
+        </transition>
+    </state>
+    <state id="Operable">
+        <qt:editorinfo geometry="817.93;178.28;-64.70;-151.40;611.89;773.36" scenegeometry="817.93;178.28;753.23;26.88;611.89;773.36"/>
+        <state id="Undefined">
+            <qt:editorinfo geometry="183.01;195.50;-60;-50;209.52;100" scenegeometry="1000.94;373.78;940.94;323.78;209.52;100"/>
+            <transition type="external" event="OPEN_CURTAINS" target="Opening">
+                <qt:editorinfo movePoint="-46.26;-17.74"/>
+            </transition>
+            <transition type="external" event="CLOSE_CURTAINS" target="Closing">
+                <qt:editorinfo movePoint="41.54;-6.87"/>
+            </transition>
+        </state>
+        <state id="Opening">
+            <qt:editorinfo geometry="23.99;365.44;-60;-50;120;100" scenegeometry="841.92;543.72;781.92;493.72;120;100"/>
+            <invoke srcexpr="onOpenCurtains"/>
+            <transition type="external" event="OPERATION_DONE" target="Open">
+                <qt:editorinfo movePoint="-37.07;17.38"/>
+            </transition>
+            <transition type="external" event="CLOSE_CURTAINS" target="Closing">
+                <qt:editorinfo startTargetFactors="89.48;34.09" endTargetFactors="9.45;27.52"/>
+            </transition>
+        </state>
+        <state id="Closing">
+            <qt:editorinfo geometry="463.94;365.44;-60;-50;120;100" scenegeometry="1281.87;543.72;1221.87;493.72;120;100"/>
+            <transition type="external" event="OPERATION_DONE" target="Closed">
+                <qt:editorinfo movePoint="24.38;2.47" startTargetFactors="56.56;19.04"/>
+            </transition>
+            <invoke srcexpr="onCloseCurtains"/>
+            <transition type="external" event="OPEN_CURTAINS" target="Opening">
+                <qt:editorinfo movePoint="-2.32;-17.38" startTargetFactors="9.45;60.74" endTargetFactors="83.19;63.53"/>
+            </transition>
+        </state>
+        <transition type="external" event="RESET_DEVICE" target="LoadConfiguration">
+            <qt:editorinfo movePoint="17.86;-19.70" startTargetFactors="1.61;21.54" endTargetFactors="86.45;56.78"/>
+        </transition>
+        <transition type="external" event="WIFI_DISCONNECTED" target="ConnectingToWiFi">
+            <qt:editorinfo movePoint="11.22;-20.41" startTargetFactors="7.25;81.75" endTargetFactors="48.10;74.63" localGeometry="-340.10;0"/>
+        </transition>
+        <state id="PrepareFrontend">
+            <qt:editorinfo geometry="17.84;52.10;-60;-50;201.87;100" scenegeometry="835.77;230.38;775.77;180.38;201.87;100"/>
+            <transition type="external" event="FRONTEND_READY" target="Undefined">
+                <qt:editorinfo movePoint="-79.93;21.75"/>
+            </transition>
+            <invoke srcexpr="onStartWebFrontend"/>
+        </state>
+        <state id="HomeAssistantIntegration">
+            <qt:editorinfo geometry="346.36;50.86;-60;-50;240.83;100" scenegeometry="1164.29;229.14;1104.29;179.14;240.83;100"/>
+            <transition type="external" event="REGISTERED_WITH_HA" target="Undefined">
+                <qt:editorinfo movePoint="80.23;0.70"/>
+            </transition>
+            <invoke srcexpr="onBeginHaRegistration"/>
+        </state>
+        <initial>
+            <qt:editorinfo geometry="230.40;-45;-20;-20;40;40" scenegeometry="1048.33;133.28;1028.33;113.28;40;40"/>
+            <transition type="external" target="PrepareFrontend"/>
+            <transition type="external" target="HomeAssistantIntegration"/>
+        </initial>
+        <state id="Open">
+            <qt:editorinfo geometry="107.60;531.79;-60;-50;120;100" scenegeometry="925.53;710.07;865.53;660.07;120;100"/>
+            <transition type="external" event="CLOSE_CURTAINS" target="Closing">
+                <qt:editorinfo movePoint="30.12;-19.69"/>
+            </transition>
+        </state>
+        <state id="Closed">
+            <qt:editorinfo geometry="378.65;532.95;-60;-50;120;100" scenegeometry="1196.58;711.23;1136.58;661.23;120;100"/>
+            <transition type="external" event="OPEN_CURTAINS" target="Opening">
+                <qt:editorinfo movePoint="-23.80;-43.75" endTargetFactors="82.97;77.24"/>
+            </transition>
+        </state>
+    </state>
+    <state id="Booting">
+        <qt:editorinfo geometry="462.53;8.16;-60;-50;120;100" scenegeometry="462.53;8.16;402.53;-41.84;120;100"/>
+        <transition type="external" event="BOOTING_FINISHED" target="LoadConfiguration">
+            <qt:editorinfo movePoint="61.09;7.57"/>
+        </transition>
+    </state>
+    <state id="WaitingInitialConfig">
+        <qt:editorinfo geometry="100.02;182.68;-60;-50;174.27;100" scenegeometry="100.02;182.68;40.02;132.68;174.27;100"/>
+        <transition type="external" event="CONFIGURED" target="PrepareDevice">
+            <qt:editorinfo movePoint="42.86;5.11"/>
+        </transition>
+        <invoke srcexpr="onSetupConfigPortal"/>
+    </state>
+    <state id="PrepareDevice">
+        <qt:editorinfo geometry="111.03;345.95;-60;-50;152.24;100" scenegeometry="111.03;345.95;51.03;295.95;152.24;100"/>
+        <transition type="external" event="DEVICE_READY" target="ConnectingToWiFi">
+            <qt:editorinfo movePoint="4.64;6.95" endTargetFactors="4.97;50"/>
+        </transition>
+        <invoke srcexpr="onPrepareDevice"/>
+    </state>
+</scxml>

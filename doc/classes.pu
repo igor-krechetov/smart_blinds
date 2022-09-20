@@ -1,0 +1,68 @@
+@startuml SmartBlindsHLD
+' left to right direction
+
+together {
+    interface ArduinoOTA
+    interface ArduinoJson
+    interface WiFiSettings
+    interface ESP8266WiFi
+    interface PubSubClient
+    interface ESP8266WebServer
+    interface LittleFS
+}
+
+class SmartBlinds
+
+class NetworkManager {
+    WiFi connection management
+}
+
+class WebFrontend {
+    provide Web UI
+    calibrate ?
+    set values
+    reset
+}
+class ConfigurationManager {
+    initial device setup
+    config loading
+    providing access to config values
+}
+class HomeAssistantIntegration {
+    HA integration
+    publishing data on MQTT
+}
+class MqttClient {
+    helper class for MQTT connection
+}
+class StepperMotor {
+    helper class to work with stepper motor
+}
+class UpdateManager {
+    handle OTA updates
+}
+
+SmartBlinds -down-* NetworkManager
+SmartBlinds -down-* WebFrontend
+SmartBlinds -down-* ConfigurationManager
+SmartBlinds -down-* HomeAssistantIntegration
+SmartBlinds -down-* StepperMotor
+SmartBlinds -down-* UpdateManager
+
+NetworkManager -down-> ESP8266WiFi
+
+WebFrontend -down-* ESP8266WebServer
+WebFrontend -left- ConfigurationManager
+
+ConfigurationManager -down-> ArduinoJson
+ConfigurationManager -down-> LittleFS
+ConfigurationManager -down-> WiFiSettings
+' LittleFS -down-> SmartBlinds
+
+UpdateManager -down-> ArduinoOTA
+UpdateManager -- ConfigurationManager
+
+HomeAssistantIntegration -down-* MqttClient
+MqttClient -down-* PubSubClient
+
+@enduml
