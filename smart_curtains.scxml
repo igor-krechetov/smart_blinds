@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" binding="early" xmlns:qt="http://www.qt.io/2015/02/scxml-ext" name="smart_blinds" qt:editorversion="7.0.0" initial="Booting">
+    <qt:editorinfo initialGeometry="105.17;-109.15;-20;-20;40;40"/>
+    <state id="LoadConfiguration">
+        <qt:editorinfo scenegeometry="69.85;174.57;9.85;124.57;190.64;100" geometry="69.85;174.57;-60;-50;190.64;100"/>
+        <transition type="external" event="CONFIGURED" target="PrepareDevice">
+            <qt:editorinfo movePoint="44.91;6.12"/>
+        </transition>
+        <invoke srcexpr="onLoadConfiguration"/>
+        <transition type="external" event="CONFIG_NOT_AVAILABLE" target="WaitingInitialConfig">
+            <qt:editorinfo movePoint="7.40;-22.45"/>
+        </transition>
+    </state>
+    <state id="ConnectingToWiFi">
+        <qt:editorinfo scenegeometry="180.44;337.84;-55.31;287.84;265.36;100" geometry="180.44;337.84;-235.75;-50;265.36;100"/>
+        <transition type="external" event="WIFI_CONNECTED" target="NetworkAvailable">
+            <qt:editorinfo endTargetFactors="2.87;36.60" startTargetFactors="93.70;52.86"/>
+        </transition>
+    </state>
+    <state id="NetworkAvailable" initial="PreparingUI">
+        <qt:editorinfo scenegeometry="816.77;323.32;571.15;-40.34;900.88;1048" geometry="816.77;323.32;-245.62;-363.66;900.88;1048"/>
+        <transition type="external" event="RESET_DEVICE" target="ResettingDevice">
+            <qt:editorinfo movePoint="17.86;-19.70" startTargetFactors="1.61;21.54"/>
+        </transition>
+        <transition type="external" event="WIFI_DISCONNECTED" target="ConnectingToWiFi">
+            <qt:editorinfo movePoint="-49.02;-30.83" endTargetFactors="48.10;74.63" startTargetFactors="2.34;77.50" localGeometry="-519.89;-7.19"/>
+        </transition>
+        <state id="PreparingUI" initial="PrepareFrontend">
+            <qt:editorinfo scenegeometry="773.46;142.13;713.46;64.78;561.39;219.57" geometry="-43.31;-181.19;-60;-77.35;561.39;219.57"/>
+            <state id="PrepareFrontend">
+                <qt:editorinfo scenegeometry="794.91;170.95;734.91;120.95;201.87;100" geometry="21.45;28.82;-60;-50;201.87;100"/>
+                <transition type="external" event="FRONTEND_READY" target="HomeAssistantIntegration">
+                    <qt:editorinfo movePoint="8.11;6.69" endTargetFactors="11.47;56.51"/>
+                </transition>
+                <invoke srcexpr="onStartWebFrontend"/>
+            </state>
+            <state id="HomeAssistantIntegration">
+                <qt:editorinfo scenegeometry="1067.82;169.72;1007.82;119.72;240.83;100" geometry="294.36;27.59;-60;-50;240.83;100"/>
+                <invoke srcexpr="onBeginHaRegistration"/>
+                <transition type="external" event="REGISTERED_WITH_HA" target="Final_1">
+                    <qt:editorinfo movePoint="81.07;8.36"/>
+                </transition>
+            </state>
+            <transition type="external" event="REGISTERED_WITH_HA" target="Operable">
+                <qt:editorinfo movePoint="77.43;4.90" endTargetFactors="47.63;4.54" startTargetFactors="48.84;86.34"/>
+            </transition>
+            <final id="Final_1">
+                <qt:editorinfo scenegeometry="966.72;244.35;946.72;224.35;40;40" geometry="193.26;102.22;-20;-20;40;40"/>
+            </final>
+        </state>
+        <onexit>
+            <script>onStopWebFrontend</script>
+        </onexit>
+        <state id="Operable" initial="LoadingLastPosition">
+            <qt:editorinfo scenegeometry="819.60;450.40;593.61;338.38;855.95;645.56" geometry="2.83;127.08;-225.99;-112.02;855.95;645.56"/>
+            <state id="LoadingLastPosition">
+                <qt:editorinfo scenegeometry="1009.17;472.55;949.17;422.55;209.52;100" geometry="192.03;18.43;-60;-50;209.52;100"/>
+                <transition type="external" event="OPERATION_DONE" target="FullyOpen" cond="isFullyOpen is true">
+                    <qt:editorinfo movePoint="-39.25;-28.03"/>
+                </transition>
+                <transition type="external" event="OPERATION_DONE" target="FullyClosed" cond="isFullyClosed is true">
+                    <qt:editorinfo movePoint="39.25;-2.80"/>
+                </transition>
+                <invoke srcexpr="onLoadLastPosition"/>
+                <transition type="external" event="OPERATION_DONE" target="Stopped" cond="isPartiallyOpen is true">
+                    <qt:editorinfo movePoint="-108.24;-235.46" endTargetFactors="87.37;72.13" localGeometry="343.76;-0.07;343.76;467.17"/>
+                </transition>
+            </state>
+            <state id="FullyOpen">
+                <qt:editorinfo scenegeometry="838.16;578.19;778.16;528.19;120;100" geometry="21.02;124.07;-60;-50;120;100"/>
+                <transition type="external" event="CLOSE_CURTAINS" target="Closing">
+                    <qt:editorinfo movePoint="-36.42;-19.87" endTargetFactors="18.92;17.81"/>
+                </transition>
+                <invoke srcexpr="onStateOpenCurtains"/>
+            </state>
+            <state id="FullyClosed">
+                <qt:editorinfo scenegeometry="1299.86;584.04;1239.86;534.04;120;100" geometry="482.72;129.92;-60;-50;120;100"/>
+                <transition type="external" event="OPEN_CURTAINS" target="Opening">
+                    <qt:editorinfo movePoint="48.79;-46.92" endTargetFactors="84.26;21.67"/>
+                </transition>
+                <invoke srcexpr="onStateClosedCurtains"/>
+            </state>
+            <state id="Opening">
+                <qt:editorinfo scenegeometry="936.34;708.95;760.96;658.95;235.38;100" geometry="116.74;258.55;-175.38;-50;235.38;100"/>
+                <invoke srcexpr="onStateOpeningCurtains"/>
+                <transition type="external" event="OPERATION_DONE" target="FullyOpen" cond="isFullyOpen is true">
+                    <qt:editorinfo movePoint="10.42;11.59" startTargetFactors="33.50;13.12"/>
+                </transition>
+                <transition type="external" event="CLOSE_CURTAINS" target="Closing">
+                    <qt:editorinfo endTargetFactors="9.45;27.52" startTargetFactors="89.48;34.09"/>
+                </transition>
+                <transition type="external" event="OPERATION_DONE" target="Stopped" cond="isFullyOpen is false">
+                    <qt:editorinfo movePoint="58.87;56.67" startTargetFactors="42.90;84.06" localGeometry="-1.65;170.93"/>
+                </transition>
+                <transition type="external" event="STOP_CURTAINS" target="Stopping">
+                    <qt:editorinfo movePoint="55.44;14.95" endTargetFactors="25.11;60.33" localGeometry="0.04;88.92"/>
+                </transition>
+            </state>
+            <state id="Closing">
+                <qt:editorinfo scenegeometry="1327.21;716.12;1148.23;666.12;238.98;100" geometry="507.61;265.72;-178.98;-50;238.98;100"/>
+                <transition type="external" event="OPERATION_DONE" target="FullyClosed" cond="isFullyClosed is true">
+                    <qt:editorinfo movePoint="19.86;8.50" startTargetFactors="66.33;11.93"/>
+                </transition>
+                <invoke srcexpr="onStateClosingCurtains"/>
+                <transition type="external" event="OPEN_CURTAINS" target="Opening">
+                    <qt:editorinfo movePoint="-2.32;-17.38" endTargetFactors="83.19;63.53" startTargetFactors="9.45;60.74"/>
+                </transition>
+                <transition type="external" event="OPERATION_DONE" target="Stopped" cond="isFullyClosed is false">
+                    <qt:editorinfo movePoint="-80.51;37.93" endTargetFactors="84.79;23.98" startTargetFactors="62.25;85" localGeometry="-0.21;135.86"/>
+                </transition>
+                <transition type="external" event="STOP_CURTAINS" target="Stopping">
+                    <qt:editorinfo movePoint="-72.26;9.97" endTargetFactors="83.68;66.45" startTargetFactors="47.29;83.90" localGeometry="0;53.97"/>
+                </transition>
+            </state>
+            <state id="Stopped">
+                <qt:editorinfo scenegeometry="1064.80;917.66;1004.80;867.66;120;100" geometry="247.66;463.54;-60;-50;120;100"/>
+                <transition type="external" event="OPEN_CURTAINS" target="Opening">
+                    <qt:editorinfo movePoint="11.53;-18.23" endTargetFactors="18.42;78.91" startTargetFactors="14.31;79.17" localGeometry="-222.78;0.51"/>
+                </transition>
+                <transition type="external" event="CLOSE_CURTAINS" target="Closing">
+                    <qt:editorinfo movePoint="-12.99;8.96" endTargetFactors="86.71;74.94" startTargetFactors="79.17;56.12" localGeometry="253.79;-0.02"/>
+                </transition>
+                <invoke srcexpr="onStateStoppedCurtains"/>
+            </state>
+            <transition type="internal" event="HA_ONLINE">
+                <qt:editorinfo endTargetFactors="7.62;5.91"/>
+                <script>onHomeAssistantAvailable</script>
+            </transition>
+            <transition type="internal" event="HA_OFFLINE">
+                <qt:editorinfo endTargetFactors="11.50;5.48"/>
+                <script>onHomeAssistantUnavailable</script>
+            </transition>
+            <transition type="internal" event="POS_CHANGED">
+                <qt:editorinfo endTargetFactors="9.49;38.90"/>
+                <script>onCurtainsPositionChanged</script>
+            </transition>
+            <state id="Stopping">
+                <qt:editorinfo scenegeometry="1070.19;787.54;1010.19;737.54;120;100" geometry="250.59;337.14;-60;-50;120;100"/>
+                <transition type="external" event="OPERATION_DONE" target="Stopped">
+                    <qt:editorinfo movePoint="-12.81;3.02"/>
+                </transition>
+                <invoke srcexpr="onStateStoppingCurtains"/>
+            </state>
+        </state>
+    </state>
+    <state id="Booting">
+        <qt:editorinfo scenegeometry="105.17;0.05;45.17;-49.95;120;100" geometry="105.17;0.05;-60;-50;120;100"/>
+        <transition type="external" event="BOOTING_FINISHED" target="LoadConfiguration">
+            <qt:editorinfo movePoint="61.09;7.57"/>
+        </transition>
+    </state>
+    <state id="WaitingInitialConfig">
+        <qt:editorinfo scenegeometry="-257.34;174.57;-317.34;124.57;174.27;100" geometry="-257.34;174.57;-60;-50;174.27;100"/>
+        <transition type="external" event="CONFIGURED" target="PrepareDevice">
+            <qt:editorinfo movePoint="42.86;5.11"/>
+        </transition>
+        <invoke srcexpr="onSetupConfigPortal"/>
+    </state>
+    <state id="PrepareDevice">
+        <qt:editorinfo scenegeometry="-246.33;337.84;-306.33;287.84;152.24;100" geometry="-246.33;337.84;-60;-50;152.24;100"/>
+        <transition type="external" event="DEVICE_READY" target="ConnectingToWiFi">
+            <qt:editorinfo movePoint="0;3.47" endTargetFactors="4.97;50"/>
+        </transition>
+        <invoke srcexpr="onPrepareDevice"/>
+    </state>
+    <state id="ResettingDevice">
+        <qt:editorinfo scenegeometry="339.13;174.57;279.13;124.57;169.89;100" geometry="339.13;174.57;-60;-50;169.89;100"/>
+        <transition type="external" event="RESET_DONE" target="LoadConfiguration">
+            <qt:editorinfo movePoint="6.96;-23.50"/>
+        </transition>
+        <invoke srcexpr="onResetDevice"/>
+    </state>
+</scxml>

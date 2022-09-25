@@ -9,16 +9,31 @@
 #include "MqttClient.hpp"
 #include "ConfigurationManager.hpp"
 
+enum class CoverState {
+    OPEN,
+    CLOSED,
+    OPENING,
+    CLOSING,
+    STOPPED
+};
+
+enum class DeviceAvailability {
+    ONLINE,
+    OFFLINE
+};
+
 class IHomeAssistantListener {
 public:
     virtual ~IHomeAssistantListener() = default;
 
     virtual void onHaConnected() = 0;
     virtual void onHaDisconnected() = 0;
+    virtual void onHaRegistrationDone() = 0;
 
     virtual void onHaRequestOpen() = 0;
     virtual void onHaRequestClose() = 0;
-    virtual void onHaRequestSetPosition(const int newPosition) = 0;
+    virtual void onHaRequestStop() = 0;
+    virtual void onHaRequestSetPosition(const uint32_t newPosition) = 0;
 };
 
 class HomeAssistantIntegration: public IMqttClientListener {
@@ -31,26 +46,31 @@ public:
 
     void processEvents();
 
-    void update
+    void updateAvailability(const DeviceAvailability availability);
+    void updateDeviceState(const CoverState state);
+    void updateCurrentPosition(const int pos);
+    int getLastPosition() const;
 
 // IMqttClientListener
 private:
     void onMqttConnected() override;
     void onMqttDisconnected() override;
-    void onTopicUpdated(char *topic, byte *payload, unsigned int length) override;
+    void onTopicUpdated(char *topic, char *payload, unsigned int length) override;
 
 private:
+    bool comparePayload(const char* str, char* payload, unsigned int payloadSize) const;
     String getTopicPrefix() const;
     String getTopicPath(const String &suffix) const;
-    void sendAvailability();
+    
     void sendDiscoveryPayload();
 
     // TODO
 private:
-    const String cTopicPrefix = "SmartBlinds";
+    const String cTopicPrefix = "SmartCurtains";
 
     IHomeAssistantListener* mListener = nullptr;
     MqttClient mClient;
+    int mLastPosition = -1;
 };
 
 #endif // HOMEASSISTANTINTEGRATION_HPP

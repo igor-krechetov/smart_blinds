@@ -5,9 +5,9 @@
 
 #include <Arduino.h>
 #include <ArduinoLog.h>
-#include "src/SmartBlinds.hpp"
+#include "src/SmartCurtains.hpp"
 
-SmartBlinds gFirmware;
+SmartCurtains gFirmware;
 
 void setup(void) {
     Serial.begin(115200);
@@ -36,67 +36,4 @@ void loop(void) {
 #endif
     
     gFirmware.processEvents();
-
-    // /**
-    //   Storing positioning data and turns off the power to the coils
-    // */
-    // if (saveItNow) {
-    //     saveConfig();
-    //     saveItNow = false;
-
-    //     stopPowerToCoils();
-    // }
-
-    // /**
-    //   Manage actions. Steering of the blind
-    // */
-    // uint8_t num = 0;
-    // bool isTimeToSendUpdate = false;
-    // for (StepperHelper &stepperHelper : stepperHelpers) {
-    //     num++;
-    //     if (!stepperHelper.isConnected()) {
-    //         continue;
-    //     }
-    //     if (stepperHelper.action == "auto") {
-    //         stepperHelper.getStepper()->run();
-    //         stepperHelper.currentPosition = stepperHelper.targetPosition - stepperHelper.getStepper()->getStepsLeft();
-    //         if (stepperHelper.currentPosition == stepperHelper.targetPosition) {
-    //             stepperHelper.route = 0;
-    //             stepperHelper.action = "";
-    //             stepperHelper.set = (stepperHelper.targetPosition * 100) / stepperHelper.maxPosition;
-    //             stepperHelper.pos = (stepperHelper.currentPosition * 100) / stepperHelper.maxPosition;
-    //             sendUpdate();
-    //             Serial.printf("Stepper %i has reached target position.\r\n", num);
-    //             saveItNow = true;
-    //             isTimeToSendUpdate = true;
-    //         }
-    //     } else if (stepperHelper.action == "manual" && stepperHelper.route != 0) {
-    //         stepperHelper.getStepper()->move(stepperHelper.route > 0, abs(stepperHelper.route));
-    //         stepperHelper.currentPosition += stepperHelper.route;
-    //     }
-
-    //     if (stepperHelper.action != "") {
-    //         isTimeToSendUpdate = true;
-    //     }
-    // }
-
-    // if (isTimeToSendUpdate) {
-    //     long now = millis();
-    //     if (now - lastPublish > 3000) { // Update state
-    //         lastPublish = now;
-    //         sendUpdate();
-    //     }
-    // }
-
-    /*
-       After running setup() the motor might still have
-       power on some of the coils. This is making sure that
-       power is off the first time loop() has been executed
-       to avoid heating the stepper motor draining
-       unnecessary current
-    */
-    // if (initLoop) {
-    //     initLoop = false;
-    //     stopPowerToCoils();
-    // }
 }

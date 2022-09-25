@@ -14,7 +14,7 @@ class IMqttClientListener {
 public:
     virtual void onMqttConnected() = 0;
     virtual void onMqttDisconnected() = 0;
-    virtual void onTopicUpdated(char *topic, byte *payload, unsigned int length) = 0;
+    virtual void onTopicUpdated(char *topic, char *payload, unsigned int length) = 0;
 };
 
 class MqttClient {
@@ -26,16 +26,19 @@ public:
     void processEvents();
 
     bool connect();
-    void publishTopic(const String& topic, const String& payload, const bool permanent);
+    bool publishTopic(const String& topic, const String& payload, const bool permanent);
 
-    String getTopicPath(const String &suffix) const;
     String getTopicPath(const String &suffix) const;
 
 private:
     IMqttClientListener* mListener;
     PubSubClient mClient;
-    WiFiClient mSocket;
+    BearSSL::WiFiClientSecure mSocket;
     std::list<String> mDefaultSubscriptions;
+
+    BearSSL::X509List mCaCert;
+    BearSSL::X509List mClientCrt;
+    BearSSL::PrivateKey mClientKey;
 };
 
 #endif // MQTTCLIENT_HPP

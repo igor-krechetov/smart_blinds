@@ -4,7 +4,7 @@
  */
 
 #include "NetworkManager.hpp"
-#include <ArduinoLog.h>
+#include "LoggingHelper.hpp"
 
 void NetworkManager::initialize(INetworkListener *listener)
 {
@@ -22,7 +22,7 @@ void NetworkManager::initialize(INetworkListener *listener)
     // WiFi.onStationModeConnected([&](const WiFiEventStationModeConnected &event){});
     mHandlerOnIP = WiFi.onStationModeGotIP([&](const WiFiEventStationModeGotIP &event)
                                            {
-                                               Log.traceln("Station connected, IP: %s", WiFi.localIP().toString().c_str());
+                                               TRACE_ARGS("Station connected, IP: %s", WiFi.localIP().toString().c_str());
                                                mListener->onNetworkConnected();
                                            });
 }

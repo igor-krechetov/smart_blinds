@@ -10,6 +10,7 @@
 #define HSM_DISABLE_TRACES
 #elif defined(HSM_LOGGING_MODE_DEBUG_OFF)
 #define HSM_DISABLE_DEBUG_TRACES
+#define HSM_USE_CONSOLE_TRACES
 #elif defined(HSM_LOGGING_MODE_STRICT_VERBOSE)
 #define HSM_USE_CONSOLE_TRACES
 #define HSM_EXIT_ON_FATAL
@@ -25,7 +26,7 @@
 
 #ifndef HSM_DISABLE_TRACES
  #ifdef PLATFORM_ARDUINO
-  // #include <Arduino.h>
+  #include <Arduino.h>
  #elif !defined(PLATFORM_FREERTOS)
   #include <sys/syscall.h>
   #include <unistd.h>
@@ -53,7 +54,7 @@
     void serialPrintf(const char* fmt, ...);
 
     #define __HSM_TRACE_CONSOLE_FORCE__(msg, ...) \
-        serialPrintf("[HSM] " __HSM_TRACE_CLASS__ "::%s: " msg, __func__,## __VA_ARGS__)
+        serialPrintf((const char*)F("[HSM] " __HSM_TRACE_CLASS__ "::%s: " msg), __func__,## __VA_ARGS__)
   #else
     #define __HSM_TRACE_CONSOLE_FORCE__(msg, ...) \
       printf("[PID:%d, TID:%d] " __HSM_TRACE_CLASS__ "::%s: " msg "\n", g_hsm_traces_pid, _tid, __func__,## __VA_ARGS__)

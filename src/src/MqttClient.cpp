@@ -4,9 +4,34 @@
  */
 
 #include "MqttClient.hpp"
-#include <ArduinoLog.h>
+#include "LoggingHelper.hpp"
 
-MqttClient::MqttClient() : mClient(mSocket) {}
+// NOTE: everything should be in PEM format
+
+static const char caCert[] PROGMEM = R"EOF(
+-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----
+")EOF";
+
+static const char clientCert[] PROGMEM = R"EOF(
+-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----
+)EOF";
+
+static const char clientKey[] PROGMEM = R"KEY(
+-----BEGIN RSA PRIVATE KEY-----
+...
+-----END RSA PRIVATE KEY-----
+)KEY";
+
+MqttClient::MqttClient()
+    : mClient(mSocket)
+    , mCaCert(caCert)
+    , mClientCrt(clientCert)
+    , mClientKey(clientKey)
+{}
 
 MqttClient::~MqttClient()
 {
@@ -18,18 +43,27 @@ MqttClient::~MqttClient()
 
 bool MqttClient::initialize(IMqttClientListener *listener, const String &brokerHost, const uint16_t brokerPort, const std::list<String>& subscriptions)
 {
+    TRACE_ARGS("MqttClient::initialize: host=%s, port=%d", brokerHost.c_str(), (int)brokerPort);
     bool res = false;
 
     if (false == brokerHost.isEmpty())
     {
         mListener = listener;
 
-        mClient.setBufferSize(1024);
-        mClient.setServer(brokerHost.c_str(), brokerPort);
-        mClient.setCallback([&](char *, uint8_t *, unsigned int) {});
+        if (nullptr != mListener) {
+            mSocket.setSSLVersion(BR_TLS12, BR_TLS12);
+            mSocket.setTrustAnchors(&mCaCert);
+            mSocket.setClientRSACert(&mClientCrt, &mClientKey);
 
-        mDefaultSubscriptions = subscriptions;
-        connect();
+            mClient.setBufferSize(2048);
+            mClient.setServer(brokerHost.c_str(), brokerPort);
+            mClient.setCallback([&](char *topic, uint8_t *payload, unsigned int payloadSize) {
+                mListener->onTopicUpdated(topic, reinterpret_cast<char*>(payload), payloadSize);
+            });
+
+            mDefaultSubscriptions = subscriptions;
+            res = connect();
+        }
     }
 
     return res;
@@ -43,7 +77,7 @@ void MqttClient::processEvents()
         {
             mClient.loop();
             //TODO: send availability on timeout
-        }
+        }  
         else
         {
             // TODO: add timeout
@@ -55,53 +89,72 @@ void MqttClient::processEvents()
 
 bool MqttClient::connect()
 {
+    TRACE("MqttClient::connect");
     bool result = false;
 
     if (false == mClient.connected())
     {
-        String clientId = "SmartBlinds-" + String(ESP.getChipId());
+        String clientId = "SmartCurtains-" + String(ESP.getChipId());
+
+        // TODO: move time sync to a different place
+        TRACE("trying to sync time...");
+        const char *ntp1 = "time.windows.com";
+        const char *ntp2 = "pool.ntp.org";
+        time_t now = 0;
+        
+        configTime(2 * 3600, 1, ntp1, ntp2);
+        while(now < 2 * 3600)
+        {
+            Serial.print(".");
+            delay(500);
+            now = time(nullptr);
+        }
+        TRACE("Time sync DONE");
 
         // TODO: add auth
         if (true == mClient.connect(clientId.c_str()))
         {
-            Log.noticeln("MqttClient connected");
+            NOTICE("MqttClient connected");
 
             if (false == mDefaultSubscriptions.empty())
             {
                 for (const String &topic : mDefaultSubscriptions)
                 {
                     mClient.subscribe(topic.c_str());
-                    Log.traceln("MqttClient: subscribed to <%s>", topic.c_str());
+                    TRACE_ARGS("MqttClient: subscribed to <%s>", topic.c_str());
                 }
             }
 
             mListener->onMqttConnected();
-            // TODO: send availability
             result = true;
         }
         else
         {
-            Log.errorln("Failed to connect to MQTT broker");
+            ERROR("Failed to connect to MQTT broker");
         }
     }
 
     return result;
 }
 
-void MqttClient::publishTopic(const String &topic, const String &payload, const bool permanent)
+bool MqttClient::publishTopic(const String &topic, const String &payload, const bool permanent)
 {
+    bool res = false;
 
     if (true == mClient.connected())
     {
-        Log.traceln("Publishing topic <%s>", topic.c_str());
+        TRACE_ARGS("Publishing topic <%s>", topic.c_str());
+        res = mClient.publish(topic.c_str(), payload.c_str(), permanent);
 
-        if (false == mClient.publish(topic.c_str(), payload.c_str(), permanent))
+        if (false == res)
         {
-            Log.traceln("ERROR: Failed to publish");
+            TRACE("ERROR: Failed to publish topic");
         }
     }
     else
     {
-        Log.traceln("Cannot send message - MQTT client is not connected.");
+        TRACE("Cannot send message - MQTT client is not connected.");
     }
+
+    return res;
 }

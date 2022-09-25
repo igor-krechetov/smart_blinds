@@ -10,6 +10,7 @@
 
 class IStepperMotorListener {
 public:
+    virtual void onMotorPositionChanged(const uint32_t pos) = 0;
     virtual void onMotorOperationFinished() = 0;
 };
 
@@ -22,17 +23,33 @@ public:
 
     void setEnabled(const bool enabled);
 
-    void setSpeed(const int rpm);
-    void moveCW(const int revolutions);
-    void moveCCW(const int revolutions);
+    void overrideCurrentPosition(const uint32_t newPos);// 0 ~ 100
+    uint32_t getCurrentPosition();// 0 ~ 100
+    uint32_t getCurrentRevolution();
+
+    void setLimit(const uint32_t revolutions);
+    void setSpeed(const uint32_t rpm);
+
+    void stopMovement();
+    void moveToPosition(const uint32_t pos);
+
+    void moveCW(const uint32_t revolutions);
+    void moveCCW(const uint32_t revolutions);
 
 private:
-    const int cStepsPerRevolution = 200;// Nema 17
-    const int cMaxRPM = 600;// Nema 17
+    void refreshCurrentPosition();
 
+private:
+    const double cStepsPerRevolution = 200.0;// Nema 17
+    const uint32_t cMaxRPM = 600;// Nema 17
+
+    uint32_t mLimitRevolutions = 10;// revolutions
+    uint32_t mPrevPosition = 0;
+    uint32_t mRevolutionsPerPosition = 10;// revolutions per position * 100 
+
+    bool mEnabled = false;
     IStepperMotorListener *mListener = nullptr;
     AccelStepper mStepper;
-    bool mEnabled = false;
 };
 
 #endif // STEPPERMOTOR_HPP
