@@ -16,16 +16,20 @@
 #include "StepperMotor.hpp"
 #include "UpdateManager.hpp"
 #include "WebFrontend.hpp"
+#include "LimitSwitch.hpp"
 
 // TODO: rename to SmartCurtains
 
 class SmartCurtains: public SmartCurtainsHsmBase,
-                   public IConfigurationListener,
-                   public INetworkListener,
-                   public IHomeAssistantListener,
-                   public IWebFrontendListener,
-                   public IStepperMotorListener {
+                     public IConfigurationListener,
+                     public INetworkListener,
+                     public IHomeAssistantListener,
+                     public IWebFrontendListener,
+                     public IStepperMotorListener,
+                     public ILimitSwitchListener,
+                     public IUpdateListener {
 public:
+    SmartCurtains();
     virtual ~SmartCurtains() = default;
 
     void initialize();
@@ -35,18 +39,22 @@ private:
     void onLoadConfiguration(const hsmcpp::VariantVector_t& args) override;
     void onSetupConfigPortal(const hsmcpp::VariantVector_t& args) override;
     void onPrepareDevice(const hsmcpp::VariantVector_t& args) override;
+    void onStartOtaManager(const hsmcpp::VariantVector_t& args) override;
     void onStartWebFrontend(const hsmcpp::VariantVector_t& args) override;
     void onBeginHaRegistration(const hsmcpp::VariantVector_t& args) override;
 
+
     bool onStopWebFrontend() override;
     void onResetDevice(const hsmcpp::VariantVector_t& args) override;
+    void onRebootDevice(const hsmcpp::VariantVector_t& args) override;
 
     void onLoadLastPosition(const hsmcpp::VariantVector_t& args) override;
-    void onStateOpenCurtains(const hsmcpp::VariantVector_t& args) override;
+    void onStateFullyOpenCurtains(const hsmcpp::VariantVector_t &args) override;
     void onStateClosedCurtains(const hsmcpp::VariantVector_t& args) override;
     void onStateOpeningCurtains(const hsmcpp::VariantVector_t& args) override;
     void onStateClosingCurtains(const hsmcpp::VariantVector_t& args) override;
-    void onStateStoppingCurtains(const hsmcpp::VariantVector_t& args) override;
+    void onRequestStopMotor(const hsmcpp::VariantVector_t& args) override;
+    bool onRequestStopMotor() override;
     void onStateStoppedCurtains(const hsmcpp::VariantVector_t& args) override;
 
     void onCurtainsPositionChanged(const hsmcpp::VariantVector_t& args) override;
@@ -85,6 +93,17 @@ private:
     void onMotorPositionChanged(const uint32_t pos) override;
     void onMotorOperationFinished() override;
 
+// ILimitSwitchListener
+private:
+    void onLimitSwitchPressed() override;
+    void onLimitSwitchReleased() override;
+
+// IUpdateListener
+private:
+    void onUpdateStarted() override;
+    void onUpdateReadyToReboot() override;
+    void onUpdateFailed() override;
+
 private:
     std::shared_ptr<hsmcpp::HsmEventDispatcherArduino> mDispatcher;
 
@@ -94,6 +113,7 @@ private:
     StepperMotor mMotor;
     UpdateManager mUpdateManager;
     WebFrontend mWebFrontend;
+    LimitSwitch mLimitSwitch;
 };
 
 #endif // SMARTCURTAINS_HPP

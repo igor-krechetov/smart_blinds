@@ -55,7 +55,7 @@ bool MqttClient::initialize(IMqttClientListener *listener, const String &brokerH
             mSocket.setTrustAnchors(&mCaCert);
             mSocket.setClientRSACert(&mClientCrt, &mClientKey);
 
-            mClient.setBufferSize(2048);
+            mClient.setBufferSize(700);
             mClient.setServer(brokerHost.c_str(), brokerPort);
             mClient.setCallback([&](char *topic, uint8_t *payload, unsigned int payloadSize) {
                 mListener->onTopicUpdated(topic, reinterpret_cast<char*>(payload), payloadSize);
@@ -94,6 +94,7 @@ bool MqttClient::connect()
 
     if (false == mClient.connected())
     {
+        // TODO: take clientID from init()
         String clientId = "SmartCurtains-" + String(ESP.getChipId());
 
         // TODO: move time sync to a different place
@@ -105,16 +106,18 @@ bool MqttClient::connect()
         configTime(2 * 3600, 1, ntp1, ntp2);
         while(now < 2 * 3600)
         {
-            Serial.print(".");
+            // Serial.print(".");
             delay(500);
             now = time(nullptr);
         }
         TRACE("Time sync DONE");
+        PRINT_FREE_HEAP();
 
         // TODO: add auth
         if (true == mClient.connect(clientId.c_str()))
         {
             NOTICE("MqttClient connected");
+            PRINT_FREE_HEAP();
 
             if (false == mDefaultSubscriptions.empty())
             {

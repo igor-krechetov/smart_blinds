@@ -34,7 +34,7 @@ private:
     IMqttClientListener* mListener;
     PubSubClient mClient;
     BearSSL::WiFiClientSecure mSocket;
-    std::list<String> mDefaultSubscriptions;
+    std::list<String> mDefaultSubscriptions;// TODO: replace with char*
 
     BearSSL::X509List mCaCert;
     BearSSL::X509List mClientCrt;

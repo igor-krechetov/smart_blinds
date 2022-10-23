@@ -57,6 +57,7 @@ void WebFrontend::handlePathRoot()
 
 void WebFrontend::handlePath404()
 {
+    // TODO: use static pages and send_P
     String message = "File Not Found\n\n";
 
     message += "URI: ";

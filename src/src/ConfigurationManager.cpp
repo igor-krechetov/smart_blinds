@@ -4,7 +4,7 @@
  */
 
 #include "ConfigurationManager.hpp"
-#include <ArduinoLog.h>
+#include "LoggingHelper.hpp"
 
 void ConfigurationManager::initialize(IConfigurationListener *listener)
 {
@@ -62,7 +62,17 @@ String ConfigurationManager::getMqttServerHost() const
 
 int ConfigurationManager::getMqttServerPort() const
 {
-    return 0; // TODO: check
+    return 0;
+}
+
+String ConfigurationManager::getOtaPassword() const
+{
+    return "";
+}
+
+int ConfigurationManager::getOtaPort() const
+{
+    return 0;
 }
 
 void ConfigurationManager::setWiFiSSID(const String &ssid)
@@ -103,7 +113,7 @@ int ConfigurationManager::getCurrentBlindsPosition() const
 
 int ConfigurationManager::getMaxBlindsPosition() const
 {
-    return 0;
+    return 100;
 }
 
 void ConfigurationManager::setCurrentBlindsPosition(const int position) const

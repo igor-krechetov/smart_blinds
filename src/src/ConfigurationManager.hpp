@@ -33,6 +33,9 @@ public:
     String getMqttServerHost() const;
     int getMqttServerPort() const;
 
+    String getOtaPassword() const;
+    int getOtaPort() const;
+
     void setWiFiSSID(const String& ssid);
     void setWiFiPassword(const String& password);
     void setMqttServerHost(const String& host);

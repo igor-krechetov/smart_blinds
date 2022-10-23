@@ -6,16 +6,24 @@
 #define UPDATEMANAGER_HPP
 
 #include <Arduino.h>
+#include "ConfigurationManager.hpp"
+
+class IUpdateListener {
+public:
+    virtual void onUpdateStarted() = 0;
+    virtual void onUpdateReadyToReboot() = 0;
+    virtual void onUpdateFailed() = 0;
+};
 
 class UpdateManager {
 public:
-    // UpdateManager();
+    UpdateManager(IUpdateListener* listener);
 
-    void initialize();
-
+    void start(const ConfigurationManager &config);
     void processEvents();
 
-    // TODO
+private:
+    IUpdateListener* mListener = nullptr;
 };
 
 #endif // UPDATEMANAGER_HPP

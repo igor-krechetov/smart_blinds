@@ -59,18 +59,17 @@ private:
 
 private:
     bool comparePayload(const char* str, char* payload, unsigned int payloadSize) const;
-    String getTopicPrefix() const;
-    String getTopicPath(const String &suffix) const;
+    String getTopicPath(const __FlashStringHelper* suffix) const;
     
     void sendDiscoveryPayload();
 
     // TODO
 private:
-    const String cTopicPrefix = "SmartCurtains";
-
     IHomeAssistantListener* mListener = nullptr;
     MqttClient mClient;
     int mLastPosition = -1;
+    char mObjectID[10] = {0};
+    char mTopicPrefix[14 + 10 + 1] = {0};// TOPIC_PREFIX + mObjectID
 };
 
 #endif // HOMEASSISTANTINTEGRATION_HPP
