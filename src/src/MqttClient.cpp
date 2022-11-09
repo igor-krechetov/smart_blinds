@@ -6,31 +6,8 @@
 #include "MqttClient.hpp"
 #include "LoggingHelper.hpp"
 
-// NOTE: everything should be in PEM format
-
-static const char caCert[] PROGMEM = R"EOF(
------BEGIN CERTIFICATE-----
-...
------END CERTIFICATE-----
-")EOF";
-
-static const char clientCert[] PROGMEM = R"EOF(
------BEGIN CERTIFICATE-----
-...
------END CERTIFICATE-----
-)EOF";
-
-static const char clientKey[] PROGMEM = R"KEY(
------BEGIN RSA PRIVATE KEY-----
-...
------END RSA PRIVATE KEY-----
-)KEY";
-
 MqttClient::MqttClient()
     : mClient(mSocket)
-    , mCaCert(caCert)
-    , mClientCrt(clientCert)
-    , mClientKey(clientKey)
 {}
 
 MqttClient::~MqttClient()
@@ -41,29 +18,26 @@ MqttClient::~MqttClient()
     }
 }
 
-bool MqttClient::initialize(IMqttClientListener *listener, const String &brokerHost, const uint16_t brokerPort, const std::list<String>& subscriptions)
+bool MqttClient::initialize(ConfigurationManager &config, IMqttClientListener *listener, const std::list<String>& subscriptions)
 {
-    TRACE_ARGS("MqttClient::initialize: host=%s, port=%d", brokerHost.c_str(), (int)brokerPort);
+    TRACE("MqttClient::initialize");
     bool res = false;
 
-    if (false == brokerHost.isEmpty())
-    {
-        mListener = listener;
+    mListener = listener;
 
-        if (nullptr != mListener) {
-            mSocket.setSSLVersion(BR_TLS12, BR_TLS12);
-            mSocket.setTrustAnchors(&mCaCert);
-            mSocket.setClientRSACert(&mClientCrt, &mClientKey);
+    if (nullptr != mListener) {
+        mSocket.setSSLVersion(BR_TLS12, BR_TLS12);
+        mSocket.setTrustAnchors(config.getMqttCaCert().get());
+        mSocket.setClientRSACert(config.getMqttClientCert().get(), config.getMqttClientKey().get());
 
-            mClient.setBufferSize(700);
-            mClient.setServer(brokerHost.c_str(), brokerPort);
-            mClient.setCallback([&](char *topic, uint8_t *payload, unsigned int payloadSize) {
-                mListener->onTopicUpdated(topic, reinterpret_cast<char*>(payload), payloadSize);
-            });
+        mClient.setBufferSize(700);
+        mClient.setServer(config.getMqttServerHost(), config.getMqttServerPort());
+        mClient.setCallback([&](char *topic, uint8_t *payload, unsigned int payloadSize) {
+            mListener->onTopicUpdated(topic, reinterpret_cast<char*>(payload), payloadSize);
+        });
 
-            mDefaultSubscriptions = subscriptions;
-            res = connect();
-        }
+        mDefaultSubscriptions = subscriptions;
+        res = connect();
     }
 
     return res;
@@ -76,13 +50,15 @@ void MqttClient::processEvents()
         if (true == mClient.connected())
         {
             mClient.loop();
-            //TODO: send availability on timeout
+            // TODO: send availability on timeout
         }  
         else
         {
-            // TODO: add timeout
-            // connect();
-            // TODO: reconnect
+            if (MQTT_CONNECTION_LOST == mClient.state())
+            {
+                mClient.disconnect();
+                mListener->onMqttDisconnected();
+            }
         }
     }
 }
@@ -94,26 +70,8 @@ bool MqttClient::connect()
 
     if (false == mClient.connected())
     {
-        // TODO: take clientID from init()
         String clientId = "SmartCurtains-" + String(ESP.getChipId());
 
-        // TODO: move time sync to a different place
-        TRACE("trying to sync time...");
-        const char *ntp1 = "time.windows.com";
-        const char *ntp2 = "pool.ntp.org";
-        time_t now = 0;
-        
-        configTime(2 * 3600, 1, ntp1, ntp2);
-        while(now < 2 * 3600)
-        {
-            // Serial.print(".");
-            delay(500);
-            now = time(nullptr);
-        }
-        TRACE("Time sync DONE");
-        PRINT_FREE_HEAP();
-
-        // TODO: add auth
         if (true == mClient.connect(clientId.c_str()))
         {
             NOTICE("MqttClient connected");

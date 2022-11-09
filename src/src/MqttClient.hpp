@@ -9,6 +9,7 @@
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
 #include <list>
+#include "ConfigurationManager.hpp"
 
 class IMqttClientListener {
 public:
@@ -22,7 +23,7 @@ public:
     MqttClient();
     ~MqttClient();
 
-    bool initialize(IMqttClientListener* listener, const String& brokerHost, const uint16_t brokerPort, const std::list<String>& subscriptions);
+    bool initialize(ConfigurationManager &config, IMqttClientListener* listener, const std::list<String>& subscriptions);
     void processEvents();
 
     bool connect();
@@ -35,10 +36,6 @@ private:
     PubSubClient mClient;
     BearSSL::WiFiClientSecure mSocket;
     std::list<String> mDefaultSubscriptions;// TODO: replace with char*
-
-    BearSSL::X509List mCaCert;
-    BearSSL::X509List mClientCrt;
-    BearSSL::PrivateKey mClientKey;
 };
 
 #endif // MQTTCLIENT_HPP

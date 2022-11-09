@@ -13,7 +13,7 @@ UpdateManager::UpdateManager(IUpdateListener* listener) : mListener(listener) {
 void UpdateManager::start(const ConfigurationManager &config){
     ArduinoOTA.setRebootOnSuccess(false);
     ArduinoOTA.setPort(config.getOtaPort());
-    ArduinoOTA.setPassword(config.getOtaPassword().c_str());
+    ArduinoOTA.setPassword(config.getOtaPassword());
 
     ArduinoOTA.onStart([&]() {
         mListener->onUpdateStarted();

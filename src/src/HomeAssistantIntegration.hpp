@@ -42,7 +42,7 @@ public:
     virtual ~HomeAssistantIntegration() = default;
 
     void initialize(IHomeAssistantListener *listener);
-    void start(const ConfigurationManager& config);
+    bool start(ConfigurationManager& config);
 
     void processEvents();
 
@@ -63,7 +63,6 @@ private:
     
     void sendDiscoveryPayload();
 
-    // TODO
 private:
     IHomeAssistantListener* mListener = nullptr;
     MqttClient mClient;

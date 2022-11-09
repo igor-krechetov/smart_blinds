@@ -5,6 +5,7 @@
 
 #include "SmartCurtains.hpp"
 #include "LoggingHelper.hpp"
+#include "resources/setup.html.mem"
 
 #define POS_CLOSED          (0)
 #define POS_OPEN            (100)
@@ -18,7 +19,7 @@ void SmartCurtains::initialize()
     mDispatcher = std::make_shared<hsmcpp::HsmEventDispatcherArduino>();
     SmartCurtainsHsmBase::initialize(mDispatcher);
 
-    mConfiguration.initialize(this);
+    mConfiguration.initialize();
     mNetworkManager.initialize(this);
     mHaIntegration.initialize(this);
     mWebFrontend.initialize(this);
@@ -42,6 +43,11 @@ void SmartCurtains::processEvents()
 
 //=======================================================================================
 // HSM Callbacks
+void SmartCurtains::onTransitionFailed(const SmartCurtainsHsmEvents event, const hsmcpp::VariantVector_t& args)
+{
+    ERROR_ARGS("onTransitionFailed (event=%d)", SC2INT(event));
+}
+
 void SmartCurtains::onLoadConfiguration(const hsmcpp::VariantVector_t &args)
 {
     TRACE("onLoadConfiguration");
@@ -56,10 +62,31 @@ void SmartCurtains::onLoadConfiguration(const hsmcpp::VariantVector_t &args)
     }
 }
 
-void SmartCurtains::onSetupConfigPortal(const hsmcpp::VariantVector_t &args)
-{
-    TRACE("onSetupConfigPortal");
-    mConfiguration.startConfigurationPortal();
+void SmartCurtains::onStartWiFiAccessPoint(const hsmcpp::VariantVector_t& args) {
+    TRACE("onStartWiFiAccessPoint");
+    
+    if (false == mNetworkManager.startWiFiAP(mConfiguration)) {
+        transition(SmartCurtainsHsmEvents::CONFIGURATION_FAILED);
+    }
+}
+
+void SmartCurtains::onStartConfigPortal(const hsmcpp::VariantVector_t& args) {
+    TRACE("onStartConfigPortal");
+    mWebFrontend.startFrontend(gPageSetup);
+    transition(SmartCurtainsHsmEvents::CONFIG_PORTAL_STARTED);
+}
+
+void SmartCurtains::onFinalizeInitialConfiguration(const hsmcpp::VariantVector_t& args) {
+    TRACE("onFinalizeInitialConfiguration");
+
+    mWebFrontend.stopFrontend();
+    mNetworkManager.stopWifiAP();
+    transition(SmartCurtainsHsmEvents::CONFIGURED);
+}
+
+void SmartCurtains::onStopConfigPortal(const hsmcpp::VariantVector_t& args) {
+    TRACE("onStopConfigPortal");
+    mWebFrontend.stopFrontend();
 }
 
 void SmartCurtains::onPrepareDevice(const hsmcpp::VariantVector_t &args)
@@ -69,7 +96,7 @@ void SmartCurtains::onPrepareDevice(const hsmcpp::VariantVector_t &args)
     PRINT_FREE_HEAP();
     mMotor.setSpeed(mConfiguration.getMotorSpeed());
     mMotor.setLimit(mConfiguration.getMaxBlindsPosition());
-    mNetworkManager.startWiFi(mConfiguration);
+    mNetworkManager.connectWiFi(mConfiguration);
     mLimitSwitch.initialize(this);
     PRINT_FREE_HEAP();
 
@@ -82,13 +109,16 @@ void SmartCurtains::onStartOtaManager(const hsmcpp::VariantVector_t& args) {
     PRINT_FREE_HEAP();
     mUpdateManager.start(mConfiguration);
     PRINT_FREE_HEAP();
+
+    transition(SmartCurtainsHsmEvents::OTA_READY);
 }
 
 void SmartCurtains::onStartWebFrontend(const hsmcpp::VariantVector_t &args)
 {
     TRACE("onStartWebFrontend");
     PRINT_FREE_HEAP();
-    mWebFrontend.startFrontend();
+    // TODO: impl onStartWebFrontend
+    // mWebFrontend.startFrontend();
     PRINT_FREE_HEAP();
     transition(SmartCurtainsHsmEvents::FRONTEND_READY);
 }
@@ -97,21 +127,24 @@ void SmartCurtains::onBeginHaRegistration(const hsmcpp::VariantVector_t &args)
 {
     TRACE("onBeginHaRegistration");
     PRINT_FREE_HEAP();
+    // TODO: check mHaIntegration.start() result and recover
     mHaIntegration.start(mConfiguration);
     PRINT_FREE_HEAP();
 }
 
-bool SmartCurtains::onStopWebFrontend()
+void SmartCurtains::onStopWebFrontend(const hsmcpp::VariantVector_t& args)
 {
     TRACE("onStopWebFrontend");
-    // TODO: impl
-    return true;
+    
+    mWebFrontend.stopFrontend();
 }
 
 void SmartCurtains::onResetDevice(const hsmcpp::VariantVector_t &args)
 {
     TRACE("onResetDevice");
-    // TODO: impl
+    
+    mConfiguration.resetConfiguration();
+    transition(SmartCurtainsHsmEvents::RESET_DONE);
 }
 
 void SmartCurtains::onRebootDevice(const hsmcpp::VariantVector_t& args) {
@@ -154,7 +187,6 @@ void SmartCurtains::onStateFullyOpenCurtains(const hsmcpp::VariantVector_t &args
 void SmartCurtains::onStateClosedCurtains(const hsmcpp::VariantVector_t &args)
 {
     TRACE("onStateClosedCurtains");
-    // TODO: impl
     mHaIntegration.updateDeviceState(CoverState::CLOSED);
 }
 
@@ -199,7 +231,7 @@ bool SmartCurtains::onRequestStopMotor() {
 void SmartCurtains::onStateStoppedCurtains(const hsmcpp::VariantVector_t &args)
 {
     TRACE("onStateStoppedCurtains");
-    // TODO: impl
+
     mHaIntegration.updateDeviceState(CoverState::STOPPED);
     PRINT_FREE_HEAP();
 }
@@ -215,27 +247,56 @@ void SmartCurtains::onCurtainsPositionChanged(const hsmcpp::VariantVector_t& arg
     PRINT_FREE_HEAP();
 }
 
+void SmartCurtains::onUpdateSystemTime(const hsmcpp::VariantVector_t& args)
+{
+    TRACE("onUpdateSystemTime");
+    const char *ntp1 = "time.windows.com";
+    const char *ntp2 = "pool.ntp.org";
+    
+    configTime(2 * 3600, 1, ntp1, ntp2);
+    PRINT_FREE_HEAP();
+}
+
+void SmartCurtains::onValidateSystemTime(const hsmcpp::VariantVector_t& args)
+{
+    TRACE("onValidateSystemTime");
+
+    if (true == hasCorrectSystemTime(args))
+    {
+        transition(SmartCurtainsHsmEvents::TIME_UPDATED);
+    }
+}
+
 void SmartCurtains::onHomeAssistantUnavailable(const hsmcpp::VariantVector_t &args)
 {
     TRACE("onHomeAssistantUnavailable");
-    // TODO: impl
+    // NOTE: do nothing
 }
 
 void SmartCurtains::onHomeAssistantAvailable(const hsmcpp::VariantVector_t &args)
 {
     TRACE("onHomeAssistantAvailable");
-    // TODO: impl
     mHaIntegration.updateAvailability(DeviceAvailability::ONLINE);
+}
+
+bool SmartCurtains::hasCorrectSystemTime(const hsmcpp::VariantVector_t& args)
+{
+    time_t now = time(nullptr);
+
+    TRACE_ARGS("---- hasCorrectSystemTime: %d", (int)(now < 2 * 3600));// TODO: remove before commit
+    return (now < 2 * 3600);
 }
 
 bool SmartCurtains::isFullyClosed(const hsmcpp::VariantVector_t &args)
 {
+    // TODO: remove trace before commit
     TRACE_ARGS("---- isFullyClosed: pos=%d, closed=%d", (int)mMotor.getCurrentPosition(), (int)(mMotor.getCurrentPosition() == POS_CLOSED));
     return mMotor.getCurrentPosition() == POS_CLOSED;
 }
 
 bool SmartCurtains::isFullyOpen(const hsmcpp::VariantVector_t &args)
 {
+    // TODO: remove trace before commit
     TRACE_ARGS("---- isFullyOpen: pos=%d, closed=%d", (int)mMotor.getCurrentPosition(), (int)(mMotor.getCurrentPosition() == POS_OPEN));
     return mMotor.getCurrentPosition() == POS_OPEN;
 }
@@ -247,13 +308,6 @@ bool SmartCurtains::isPartiallyOpen(const hsmcpp::VariantVector_t& args)
 }
 
 //=======================================================================================
-void SmartCurtains::onConfigured()
-{
-    TRACE("onConfigured");
-    mConfiguration.stopConfigurationPortal();
-    transition(SmartCurtainsHsmEvents::CONFIGURED);
-}
-
 void SmartCurtains::onNetworkConnected()
 {
     TRACE("onNetworkConnected");
@@ -264,6 +318,16 @@ void SmartCurtains::onNetworkDisconnected()
 {
     TRACE("onNetworkDisconnected");
     transition(SmartCurtainsHsmEvents::WIFI_DISCONNECTED);
+}
+
+void SmartCurtains::onNetworkAccessPointStarted() {
+    TRACE("onNetworkAccessPointStarted");
+    transition(SmartCurtainsHsmEvents::AP_CONNECTED);
+}
+
+void SmartCurtains::onNetworkAccessPointStopped() {
+    TRACE("onNetworkAccessPointStopped");
+    transition(SmartCurtainsHsmEvents::AP_DISCONNECTED);
 }
 
 void SmartCurtains::onHaConnected()
@@ -314,23 +378,104 @@ void SmartCurtains::onHaRequestSetPosition(const uint32_t newPosition)
     }
 }
 
-void SmartCurtains::onFrontendRequest(const String &command, const String &args)
+int SmartCurtains::onFrontendRequest(const String &command)
 {
     TRACE_ARGS("onFrontendRequest: <%s>", command.c_str());
+    int statusCode = HTTP_RESULT_OK;
 
-    // TODO: impl
     if (command == "open")
     {
-        transition(SmartCurtainsHsmEvents::OPEN_CURTAINS, static_cast<int32_t>(args.toInt()));
+        // TODO: check if arg is needed
+        if (1 == mWebFrontend.getArgsCount()) {
+            transition(SmartCurtainsHsmEvents::OPEN_CURTAINS, static_cast<int32_t>(mWebFrontend.getArgValue(0).toInt()));
+        }
     }
     else if (command == "close")
     {
-        transition(SmartCurtainsHsmEvents::CLOSE_CURTAINS, static_cast<int32_t>(args.toInt()));
+        // TODO: check if arg is needed
+        if (1 == mWebFrontend.getArgsCount()) {
+            transition(SmartCurtainsHsmEvents::CLOSE_CURTAINS, static_cast<int32_t>(mWebFrontend.getArgValue(0).toInt()));
+        }
     }
     else if (command == "reset")
     {
         transition(SmartCurtainsHsmEvents::RESET_DEVICE);
     }
+    else if (command == "/configure")
+    {
+        TRACE_ARGS("args count: <%d>", mWebFrontend.getArgsCount());
+
+        if (6 == mWebFrontend.getArgsCount())
+        {
+            // TODO: remove before commit. for debug
+            // TRACE_ARGS("wifi_ssid: <%s>", mWebFrontend.getArgValue("wifi_ssid").c_str());
+            // TRACE_ARGS("wifi_pwd: <%s>", mWebFrontend.getArgValue("wifi_pwd").c_str());
+            // TRACE_ARGS("ota_port: <%s>", mWebFrontend.getArgValue("ota_port").c_str());
+            // TRACE_ARGS("ota_pwd: <%s>", mWebFrontend.getArgValue("ota_pwd").c_str());
+            // TRACE_ARGS("mqtt_host: <%s>", mWebFrontend.getArgValue("mqtt_host").c_str());
+            // TRACE_ARGS("mqtt_port: <%s>", mWebFrontend.getArgValue("mqtt_port").c_str());
+
+            mConfiguration.setWiFiSSID(mWebFrontend.getArgValue("wifi_ssid").c_str());
+            mConfiguration.setWiFiPassword(mWebFrontend.getArgValue("wifi_pwd").c_str());
+            mConfiguration.setOtaPort(mWebFrontend.getArgValue("ota_port").toInt());
+            mConfiguration.setOtaPassword(mWebFrontend.getArgValue("ota_pwd").c_str());
+            mConfiguration.setMqttServerHost(mWebFrontend.getArgValue("mqtt_host").c_str());
+            mConfiguration.setMqttServerPort(mWebFrontend.getArgValue("mqtt_port").toInt());
+
+            if (true == mConfiguration.validateConfiguration()) {
+                if (true == mConfiguration.saveConfiguration()) {
+                    TRACE("configured");
+                } else {
+                    ERROR("failed to save config");
+                    statusCode =  HTTP_RESULT_SERVER_ERROR;
+                }
+            } else {
+                TRACE("validation FAILED");
+                statusCode =  HTTP_RESULT_BAD_REQUEST;
+            }
+        } else {
+            ERROR_ARGS("unexpected amount of arguments: %d", mWebFrontend.getArgsCount());
+            statusCode = HTTP_RESULT_SERVER_ERROR;
+        }
+    } else {
+        statusCode = HTTP_RESULT_NOT_FOUND;
+    }
+
+    return statusCode;
+}
+
+void SmartCurtains::onFrontendResponseSent(const int statusCode) {
+    TRACE_ARGS("onFrontendResponseSent: statusCode=%d", statusCode);
+
+    if (HTTP_RESULT_OK == statusCode) {
+        transition(SmartCurtainsHsmEvents::CONFIGURATION_RECEIVED);
+    } else {
+        transition(SmartCurtainsHsmEvents::INVALID_CONFIG_REQUEST);
+    }
+}
+
+void SmartCurtains::onFileUploaded(const String& id) {
+    TRACE_ARGS("onFileUploaded: id=<%s>", id.c_str());
+
+    transition(SmartCurtainsHsmEvents::CONFIGURATION_RECEIVED);
+}
+
+const char* SmartCurtains::onFileUploadRequest(const String& id, const String& file)
+{
+    TRACE_ARGS("onFileUploadRequest: id=<%s>, file=<%s>", id.c_str(), file.c_str());
+    const char* uploadPath = nullptr;
+
+    if (id == "mqtt_cert_ca"){
+        uploadPath = mConfiguration.getMqttCaCertPath();
+    }
+    else if (id == "mqtt_cert_client"){
+        uploadPath = mConfiguration.getMqttClientCertPath();
+    }
+    else if (id == "mqtt_client_key"){
+        uploadPath = mConfiguration.getMqttClientKeyPath();
+    }
+
+    return uploadPath;
 }
 
 void SmartCurtains::onMotorPositionChanged(const uint32_t pos)

@@ -1,0 +1,11 @@
+{
+"wifi_ssid": "...",
+"wifi_pwd": "...",
+"mqtt_host": "...",
+"mqtt_port": 9227,
+"qta_pwd": "...",
+"qta_port": 7181,
+"motor_spd": 120,
+"curtains_last_pos": 0,
+"curtains_max_pos": 100
+}

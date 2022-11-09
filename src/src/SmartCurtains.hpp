@@ -18,10 +18,7 @@
 #include "WebFrontend.hpp"
 #include "LimitSwitch.hpp"
 
-// TODO: rename to SmartCurtains
-
 class SmartCurtains: public SmartCurtainsHsmBase,
-                     public IConfigurationListener,
                      public INetworkListener,
                      public IHomeAssistantListener,
                      public IWebFrontendListener,
@@ -36,15 +33,20 @@ public:
     void processEvents();
 
 private:
+    void onTransitionFailed(const SmartCurtainsHsmEvents event, const hsmcpp::VariantVector_t& args) override;
+
     void onLoadConfiguration(const hsmcpp::VariantVector_t& args) override;
-    void onSetupConfigPortal(const hsmcpp::VariantVector_t& args) override;
+    void onStartWiFiAccessPoint(const hsmcpp::VariantVector_t& args) override;
+    void onStartConfigPortal(const hsmcpp::VariantVector_t& args) override;
+    void onFinalizeInitialConfiguration(const hsmcpp::VariantVector_t& args) override;
+    void onStopConfigPortal(const hsmcpp::VariantVector_t& args) override;
+
     void onPrepareDevice(const hsmcpp::VariantVector_t& args) override;
     void onStartOtaManager(const hsmcpp::VariantVector_t& args) override;
     void onStartWebFrontend(const hsmcpp::VariantVector_t& args) override;
     void onBeginHaRegistration(const hsmcpp::VariantVector_t& args) override;
 
-
-    bool onStopWebFrontend() override;
+    void onStopWebFrontend(const hsmcpp::VariantVector_t& args) override;
     void onResetDevice(const hsmcpp::VariantVector_t& args) override;
     void onRebootDevice(const hsmcpp::VariantVector_t& args) override;
 
@@ -59,19 +61,22 @@ private:
 
     void onCurtainsPositionChanged(const hsmcpp::VariantVector_t& args) override;
 
+    void onUpdateSystemTime(const hsmcpp::VariantVector_t& args) override;
+    void onValidateSystemTime(const hsmcpp::VariantVector_t& args) override;
+
     void onHomeAssistantUnavailable(const hsmcpp::VariantVector_t& args) override;
     void onHomeAssistantAvailable(const hsmcpp::VariantVector_t& args) override;
 
+    bool hasCorrectSystemTime(const hsmcpp::VariantVector_t& args) override;
     bool isFullyClosed(const hsmcpp::VariantVector_t& args) override;
     bool isFullyOpen(const hsmcpp::VariantVector_t& args) override;
     bool isPartiallyOpen(const hsmcpp::VariantVector_t& args) override;
 
 private:
-    void onConfigured() override;
-
-private:
     void onNetworkConnected() override;
     void onNetworkDisconnected() override;
+    void onNetworkAccessPointStarted() override;
+    void onNetworkAccessPointStopped() override;
 
 // IHomeAssistantListener
 private:
@@ -86,7 +91,10 @@ private:
 
 // IWebFrontendListener
 private:
-    void onFrontendRequest(const String& command, const String& args) override;
+    int onFrontendRequest(const String& command) override;
+    void onFrontendResponseSent(const int statusCode) override;
+    void onFileUploaded(const String& id) override;
+    const char* onFileUploadRequest(const String& id, const String& file) override;
 
 // IStepperMotorListener
 private:

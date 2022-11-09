@@ -64,8 +64,9 @@ namespace hsmcpp
 #define __HSM_TRACE_CLASS__                         "HierarchicalStateMachine"
 
 #define HSM_WAIT_INDEFINITELY                   (0)
-#define INVALID_HSM_EVENT_ID                    static_cast<HsmEventEnum>(-1000)
-#define INVALID_HSM_STATE_ID                    static_cast<HsmStateEnum>(-1000)
+#define INVALID_ID                              (-1000)
+#define INVALID_HSM_EVENT_ID                    static_cast<HsmEventEnum>(INVALID_ID)
+#define INVALID_HSM_STATE_ID                    static_cast<HsmStateEnum>(INVALID_ID)
 
 #define ENV_DUMPPATH                            "HSMCPP_DUMP_PATH"
 #define DEFAULT_DUMP_PATH                       "./dump.hsmlog"
@@ -326,6 +327,7 @@ public:
 
     void registerTimer(const TimerID_t timerID, const HsmEventEnum event);
 
+    // TODO: add support for transition actions
     template <typename... Args>
     bool registerStateAction(const HsmStateEnum state,
                              const StateActionTrigger actionTrigger,
@@ -1260,6 +1262,7 @@ void HierarchicalStateMachine<HsmStateEnum, HsmEventEnum>::dispatchTimerEvent(co
     }
 }
 
+// FIXME: exit callback is handled incorrectly when entering substates (onExit for parent is called, when it should not)
 template <typename HsmStateEnum, typename HsmEventEnum>
 bool HierarchicalStateMachine<HsmStateEnum, HsmEventEnum>::onStateExiting(const HsmStateEnum state)
 {

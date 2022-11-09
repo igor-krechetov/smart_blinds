@@ -23,9 +23,8 @@ void HomeAssistantIntegration::initialize(IHomeAssistantListener *listener)
     snprintf(mTopicPrefix, sizeof(mTopicPrefix), TOPIC_PREFIX "%s", mObjectID);
 }
 
-void HomeAssistantIntegration::start(const ConfigurationManager &config)
+bool HomeAssistantIntegration::start(ConfigurationManager &config)
 {
-    // TODO: check result
     // TODO: replace String with char*
     std::list<String> defaultSubscriptions;
     
@@ -33,7 +32,8 @@ void HomeAssistantIntegration::start(const ConfigurationManager &config)
     defaultSubscriptions.push_back(getTopicPath(F(TOPIC_SET_POSITION)));
     defaultSubscriptions.push_back(getTopicPath(F(TOPIC_POSITION)));
     defaultSubscriptions.push_back(TOPIC_HA_STATUS);
-    mClient.initialize(this, config.getMqttServerHost(), config.getMqttServerPort(), defaultSubscriptions);
+    
+    return mClient.initialize(config, this, defaultSubscriptions);
 }
 
 void HomeAssistantIntegration::processEvents()
@@ -89,13 +89,12 @@ int HomeAssistantIntegration::getLastPosition() const
 
 void HomeAssistantIntegration::onMqttConnected()
 {
-    // TODO: impl
     sendDiscoveryPayload();
 }
 
 void HomeAssistantIntegration::onMqttDisconnected()
 {
-    // TODO: impl
+    // TODO: reconnect client after timeout
 }
 
 void HomeAssistantIntegration::onTopicUpdated(char *topic, char *payload, unsigned int length)
@@ -167,7 +166,7 @@ void HomeAssistantIntegration::sendDiscoveryPayload()
         isDiscoverySent = true;
 
         // TODO: can I use PROGMEM for this?
-        StaticJsonDocument<900> payload;
+        StaticJsonDocument<1000> payload;
 
         payload[F("~")] = mTopicPrefix;
         payload[F("name")] = F("SmartCurtains");
@@ -204,7 +203,7 @@ void HomeAssistantIntegration::sendDiscoveryPayload()
         JsonArray ids = dev.createNestedArray(F("ids"));
         ids.add(mObjectID);
         dev["mf"] = F("Igor Krechetov");
-        dev["sw"] = F("0.1");
+        dev["sw"] = F("0.1");// TODO: use real version from config
         dev["mdl"] = F("P1");
 
         String haConfig;// ~630 bytes

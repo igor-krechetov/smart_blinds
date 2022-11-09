@@ -14,6 +14,9 @@ class INetworkListener
 public:
     virtual void onNetworkConnected() = 0;
     virtual void onNetworkDisconnected() = 0;
+
+    virtual void onNetworkAccessPointStarted() = 0;
+    virtual void onNetworkAccessPointStopped() = 0;
 };
 
 class NetworkManager
@@ -23,13 +26,18 @@ public:
     void initialize(INetworkListener *listener);
     void processEvents();
 
-    void startWiFi(const ConfigurationManager &config);
-    void stopWifi();
+    void connectWiFi(const ConfigurationManager &config);
+    void disconnectWifi();
+
+    bool startWiFiAP(const ConfigurationManager &config);
+    void stopWifiAP();
 
 private:
     INetworkListener *mListener;
     WiFiEventHandler mHandlerOnIP;
     WiFiEventHandler mHandlerOnDisconnected;
+    WiFiEventHandler mHandlerOnApStarted;
+    WiFiEventHandler mHandlerOnApStopped;
 };
 
 #endif // NETWORKMANAGER_HPP

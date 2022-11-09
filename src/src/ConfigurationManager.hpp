@@ -7,50 +7,68 @@
 #define CONFIGURATIONMANAGER_HPP
 
 #include <Arduino.h>
-#include <functional>
-
-class IConfigurationListener {
-public:
-    virtual void onConfigured() = 0;
-};
+#include <ArduinoJson.h>
+#include <BearSSLHelpers.h>
+#include <memory>
 
 class ConfigurationManager {
 public:
-    // ConfigurationManager();
-    void initialize(IConfigurationListener* listener);
+    ConfigurationManager();
+    // ~ConfigurationManager();
+
+    bool initialize();
     void processEvents();
 
     bool loadConfiguration();
     bool saveConfiguration();
+    void resetConfiguration();
+    bool validateConfiguration() const;
 
-    void startConfigurationPortal();
-    void stopConfigurationPortal();
+    const char* getFirmwareVersion() const;// TODO: here?
 
-    String getFirmwareVersion() const;// TODO: here?
-
-    String getWiFiSSID() const;
-    String getWiFiPassword() const;
-    String getMqttServerHost() const;
+    const char* getPrivateWiFiSSID() const;
+    const char* getPrivateWiFiPassword() const;
+    const char* getWiFiSSID() const;
+    const char* getWiFiPassword() const;
+    const char* getMqttServerHost() const;
     int getMqttServerPort() const;
-
-    String getOtaPassword() const;
+    const char* getOtaPassword() const;
     int getOtaPort() const;
 
-    void setWiFiSSID(const String& ssid);
-    void setWiFiPassword(const String& password);
-    void setMqttServerHost(const String& host);
+    void setWiFiSSID(const char* ssid);
+    void setWiFiPassword(const char* password);
+    void setMqttServerHost(const char* host);
     void setMqttServerPort(const int port);
+    void setOtaPassword(const char* password);
+    void setOtaPort(const int port);
 
     void setMotorSpeed(const int rpm);
     int getMotorSpeed() const;
     
     int getCurrentBlindsPosition() const;
     int getMaxBlindsPosition() const;
-    void setCurrentBlindsPosition(const int position) const;
-    void setMaxBlindsPosition(const int maxPosition) const;
+    void setCurrentBlindsPosition(const int position);
+    void setMaxBlindsPosition(const int maxPosition);
+
+    const char* getMqttCaCertPath() const;
+    const char* getMqttClientCertPath() const;
+    const char* getMqttClientKeyPath() const;
+
+    std::shared_ptr<BearSSL::X509List> getMqttCaCert();
+    std::shared_ptr<BearSSL::X509List> getMqttClientCert();
+    std::shared_ptr<BearSSL::PrivateKey> getMqttClientKey();
 
 private:
-    IConfigurationListener* mListener = nullptr;
+    std::shared_ptr<BearSSL::X509List> loadCertificate(const char* path) const;
+    std::shared_ptr<BearSSL::PrivateKey> loadPrivateKey(const char* path) const;
+
+private:
+    DynamicJsonDocument mConfigValues;
+
+    // NOTE: everything should be in PEM format
+    std::shared_ptr<BearSSL::X509List> mMqttCaCert;
+    std::shared_ptr<BearSSL::X509List> mMqttClientCert;
+    std::shared_ptr<BearSSL::PrivateKey> mMqttClientKey;
 };
 
 #endif // CONFIGURATIONMANAGER_HPP

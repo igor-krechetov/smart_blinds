@@ -1,0 +1,78 @@
+const char gPageSetup[] PROGMEM = R"=====(
+<html>
+    <head>
+        <style type="text/css">
+            .form_header {
+                text-align: center;
+                font-weight: bold;
+                background-color: gray;
+                color: white;
+            }
+
+            input {
+                width: 100%
+            }
+        </style>
+    </head>
+    <body>
+        <div>
+            <form action="./configure" method="post" enctype="multipart/form-data">
+                <table>
+                    <tr>
+                        <th colspan="2">
+                            <h1 style="text-align: center">Smart Curtains</h1>
+                            <h2 style="text-align: center">Initial Device Setup</h2>
+                        </th>
+                    </tr>
+                    <tr><td colspan="2" class="form_header">WiFi Settings</td></tr>
+                    <tr>
+                        <td>WiFi SSID:</td>
+                        <td><input name="wifi_ssid" type="text" value="" /></td>
+                    </tr>
+                    <tr>
+                        <td>WiFi Password:</td>
+                        <td><input name="wifi_pwd" type="password" value="" /></td>
+                    </tr>
+                    
+                    <tr><td colspan="2" class="form_header">OTA Settings</td></tr>
+                    <tr>
+                        <td>OTA port:</td>
+                        <td><input name="ota_port" type="text" value="7181" /></td>
+                    </tr>
+                    <tr>
+                        <td>OTA password:</td>
+                        <td><input name="ota_pwd" type="password" value="" /></td>
+                    </tr>
+                    
+                    <tr><td colspan="2" class="form_header">MQTT Settings</td></tr>
+                    <tr>
+                        <td>Host:</td>
+                        <td><input name="mqtt_host" type="text" value="" /></td>
+                    </tr>
+                    <tr>
+                        <td>Port:</td>
+                        <td><input name="mqtt_port" type="text" value="9227" /></td>
+                    </tr>
+                    <tr>
+                        <td>CA Certificate:</td>
+                        <td><input name="mqtt_cert_ca" type="file" /></td>
+                    </tr>
+                    <tr>
+                        <td>Client Certificate:</td>
+                        <td><input name="mqtt_cert_client" type="file" /></td>
+                    </tr>
+                    <tr>
+                        <td>Client Key:</td>
+                        <td><input name="mqtt_client_key" type="file" /></td>
+                    </tr>
+
+                    <tr><td colspan="2"><hr /></td></tr>
+                    <tr><td colspan="2">
+                        <input type="submit" value="Save Configuration" />
+                    </td></tr>
+                </table>
+            </form>
+        </div>
+    </body>
+</html>
+)=====";
