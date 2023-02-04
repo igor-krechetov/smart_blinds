@@ -1,4 +1,4 @@
-@startuml SmartBlindsHLD
+@startuml smart_curtains_hld
 ' left to right direction
 
 together {
@@ -11,58 +11,111 @@ together {
     interface LittleFS
 }
 
-class SmartBlinds
+class HierarchicalStateMachine <<hsmcpp>>
+
+abstract SmartCurtainsHsmBase <<generated>>
+
+class "**SmartCurtains**" as SmartCurtains {
+    - initializes all componets
+    - contains main business logic
+}
 
 class NetworkManager {
-    WiFi connection management
+    - WiFi connection management
 }
 
 class WebFrontend {
-    provide Web UI
-    calibrate ?
-    set values
-    reset
+    provide Web UI for:
+    - curtains control
+    - calibration
+    - device reset
 }
 class ConfigurationManager {
-    initial device setup
-    config loading
-    providing access to config values
+    - initial device setup
+    - config loading
+    - providing access to config values
 }
 class HomeAssistantIntegration {
-    HA integration
-    publishing data on MQTT
+    - HA integration
+    - publishing data on MQTT
 }
 class MqttClient {
-    helper class for MQTT connection
+    - helper class for MQTT connection
 }
 class StepperMotor {
-    helper class to work with stepper motor
+    - helper class to work
+    with stepper motor
 }
 class UpdateManager {
-    handle OTA updates
+    - handle OTA updates
+}
+class Buzzer {
+    - handle playback of
+    sound notifications
 }
 
-SmartBlinds -down-* NetworkManager
-SmartBlinds -down-* WebFrontend
-SmartBlinds -down-* ConfigurationManager
-SmartBlinds -down-* HomeAssistantIntegration
-SmartBlinds -down-* StepperMotor
-SmartBlinds -down-* UpdateManager
+class LimitSwitch {
+    - helper class to work
+    with limit switch
+}
+
+interface IMqttClientListener
+interface INetworkListener
+interface IStepperMotorListener
+interface IUpdateListener
+interface IWebFrontendListener
+interface IHomeAssistantListener
+interface ILimitSwitchListener
+
+SmartCurtainsHsmBase -up-|> HierarchicalStateMachine
+
+SmartCurtains -down-* Buzzer
+SmartCurtains -down-* NetworkManager
+SmartCurtains -down-* WebFrontend
+SmartCurtains -down-* ConfigurationManager
+SmartCurtains -down-* HomeAssistantIntegration
+SmartCurtains -down-* StepperMotor
+SmartCurtains -down-* UpdateManager
+SmartCurtains -down-* LimitSwitch
+
+NetworkManager -up-o INetworkListener
+StepperMotor -up-o IStepperMotorListener
+UpdateManager -up-o IUpdateListener
+WebFrontend -up-o IWebFrontendListener
+HomeAssistantIntegration -up-o IHomeAssistantListener
+LimitSwitch -up-o ILimitSwitchListener
+
+MqttClient -right-o IMqttClientListener
+
+SmartCurtains -up-|> SmartCurtainsHsmBase
+SmartCurtains -down-|> INetworkListener
+SmartCurtains -down-|> IHomeAssistantListener
+SmartCurtains -down-|> IWebFrontendListener
+SmartCurtains -down-|> IStepperMotorListener
+SmartCurtains -down-|> ILimitSwitchListener
+SmartCurtains -down-|> IUpdateListener
+
 
 NetworkManager -down-> ESP8266WiFi
 
 WebFrontend -down-* ESP8266WebServer
-WebFrontend -left- ConfigurationManager
 
 ConfigurationManager -down-> ArduinoJson
 ConfigurationManager -down-> LittleFS
 ConfigurationManager -down-> WiFiSettings
-' LittleFS -down-> SmartBlinds
+' LittleFS -down-> SmartCurtains
 
 UpdateManager -down-> ArduinoOTA
-UpdateManager -- ConfigurationManager
+' UpdateManager -- ConfigurationManager
 
+HomeAssistantIntegration --|> IMqttClientListener
 HomeAssistantIntegration -down-* MqttClient
 MqttClient -down-* PubSubClient
+
+
+HomeAssistantIntegration --o ConfigurationManager
+MqttClient --o ConfigurationManager
+NetworkManager -- ConfigurationManager
+UpdateManager -- ConfigurationManager
 
 @enduml

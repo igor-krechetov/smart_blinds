@@ -1,0 +1,330 @@
+const char gPageFrontend[] PROGMEM = R"=====(
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Igor Krechetov">
+    <title>Smart Curtains UI</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="/bootstrap.min.css" rel="stylesheet">
+    <script src="/bootstrap.bundle.min.js"></script>
+
+    <style>
+        .bd-placeholder-img {
+            font-size: 1.125rem;
+            text-anchor: middle;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+        }
+        
+        @media (min-width: 768px) {
+            .bd-placeholder-img-lg {
+                font-size: 3.5rem;
+            }
+        }
+        
+        div.col {
+            text-align: center
+        }
+        /* #ui-start-calibration div.col {
+            text-align: center
+        } */
+    </style>
+    <script type="application/javascript">
+        var rebootTimeout = 15;
+
+        function registerDocumentReady(fn) {
+            if (document.readyState === "complete" || document.readyState === "interactive") {
+                setTimeout(fn, 1);
+            } else {
+                document.addEventListener("DOMContentLoaded", fn);
+            }
+        }
+
+        function hideElement(id) {
+            document.getElementById(id).style.display = "none";
+        }
+
+        function showElement(id) {
+            document.getElementById(id).style.display = "inline";
+        }
+
+        function showNotification(type, msg) {
+            var alertsPlaceholder = document.getElementById('alert-placeholder');
+
+            for (var i = (alertsPlaceholder.children.length-1); i >=0 ; i--) {
+                alertsPlaceholder.children[i].remove();
+            }
+            
+            alertsPlaceholder.innerHTML =
+                "<div class='alert alert-" + type + " alert-dismissible fade show' role='alert'>" +
+                "<div>" + msg + "</div>" +
+                "<button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>" +
+                "</div>" + alertsPlaceholder.innerHTML;
+        }
+
+        function showRequestStatus(type, msg) {
+            showNotification(type, "Request status: " + msg);
+        }
+
+        function makeRequest(uri, params, showResultNotification, successCallback = null) {
+            const xhttp = new XMLHttpRequest();
+            xhttp.onload = function() {
+                if (200 == this.status) {
+                    if (true == showResultNotification) {
+                        showRequestStatus("success", "Done");
+                    }
+
+                    if (successCallback) {
+                        successCallback(this.responseText);
+                    }
+                } else {
+                    if (true == showResultNotification) {
+                        showRequestStatus("danger", "Code " + String(this.status));
+                    }
+                }
+            };
+            xhttp.onerror = function() {
+                if (true == showResultNotification) {
+                    showRequestStatus("danger", "Code " + String(this.status) + "<br/>" + this.responseText);
+                }
+            };
+            xhttp.open("GET", uri + "?" + params);
+            xhttp.send();
+        }
+
+        function onStartCalibration() {
+            makeRequest("/calibration_begin", "", true, function(data){
+                hideElement("ui-start-calibration");
+                showElement("ui-calibration");
+            });
+        }
+
+        function onCalibrationMove(value) {
+            makeRequest("/calibration_move", "pos=" + value, true);
+        }
+
+        function onFinishCalibration() {
+            makeRequest("/calibration_finish", "save=1", true, function(data){
+                showElement("ui-start-calibration");
+                hideElement("ui-calibration");
+            });
+        }
+
+        function onCancelCalibration() {
+            makeRequest("/calibration_finish", "save=0", true, function(data){
+                showElement("ui-start-calibration");
+                hideElement("ui-calibration");
+            });
+        }
+
+        function onStopCurtains(value) {
+            makeRequest("/stop", "", true);
+        }
+
+        function onOpenCurtains(value) {
+            makeRequest("/open", "", true);
+        }
+
+        function onCloseCurtains(value) {
+            makeRequest("/close", "", true);
+        }
+
+        function onMoveCurtains(value) {
+            makeRequest("/move", "pos=" + value, true);
+        }
+
+        function initializePage() {
+            makeRequest("/get_status", "", false, function(data) {
+                // var data = '{"v":"0.7","im":false}';
+                var status = JSON.parse(data);
+
+                elemVersion = document.getElementById('fw_version');
+                elemVersion.innerHTML = status.v;
+
+                if (false == status.im) {
+                    var tabs = ["controls", "calibration", "system", "installation"];
+
+                    tabs.forEach(element => {
+                        console.log(element);
+                        var elemTab = document.getElementById('v-pills-' + element + '-tab');
+                        var elemContent = document.getElementById('pills-' + element);
+
+                        elemTab.classList.remove("disabled", "active");
+                        elemContent.classList.remove("active", "show");
+                    });
+
+                    document.getElementById('v-pills-controls-tab').classList.add("active");
+                    document.getElementById('pills-controls').classList.add("active", "show");
+
+                    document.getElementById('v-pills-installation-tab').classList.add("disabled");
+                }
+            });
+        }
+
+        function finishInstallation() {
+            makeRequest("/finish_installation", "", true, function(data) {
+                handleRebootCountdown();
+            });
+        }
+
+        function handleRebootCountdown() {
+            showNotification("warning", "Device is rebooting. Page will be reloaded automatically in " + rebootTimeout + "s");
+            rebootTimeout -= 1;
+            if (rebootTimeout > 0) {
+                setTimeout(handleRebootCountdown, 1000);
+            } else {
+                location.reload();
+            }
+        }
+
+        function rebootDevice() {
+            if (confirm("Are you sure you want to reboot device?")) {
+                makeRequest("/reboot", "", true, function(data) {
+                    handleRebootCountdown();
+                });
+            }
+        }
+
+        function enableInstallationMode() {
+            makeRequest("/enable_installation", "", true, function(data) {
+                handleRebootCountdown();
+            });
+        }
+
+        function factoryReset() {
+            if (confirm("Are you sure you want to reset device? This will erase all settings and return device to installation mode.")) {
+                makeRequest("/reset", "", true, function(data) {
+                    alert("Device was reset successfully and will reboot soon. Connect to device's WiFi network for initial configuration.");
+                });
+            }
+        }
+
+        registerDocumentReady(initializePage);
+    </script>
+</head>
+<body>
+    <div id="alert-placeholder">
+    </div>
+    <div class="d-flex align-items-start w-100">
+        <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+            <button class="nav-link disabled" id="v-pills-controls-tab" data-bs-toggle="pill" data-bs-target="#pills-controls" type="button" role="tab" aria-controls="v-pills-home" aria-selected="true">Control</button>
+            <button class="nav-link disabled" id="v-pills-calibration-tab" data-bs-toggle="pill" data-bs-target="#pills-calibration" type="button" role="tab" aria-controls="v-pills-profile" aria-selected="false">Calibration</button>
+            <button class="nav-link disabled" id="v-pills-system-tab" data-bs-toggle="pill" data-bs-target="#pills-system" type="button" role="tab" aria-controls="v-pills-system" aria-selected="false">System</button>
+            <button class="nav-link active" id="v-pills-installation-tab" data-bs-toggle="pill" data-bs-target="#pills-controls" type="button" role="tab" aria-controls="v-pills-home" aria-selected="true">Installation</button>
+        </div>
+
+        <div class="tab-content w-100" id="pills-tabContent">
+            <div class="tab-pane fade w-100" id="pills-controls" role="tabpanel" aria-labelledby="pills-controls-tab">
+                <div class="container w-100">
+                    <div class="row">
+                        <div class="col">
+                            <h3>Smart Curtains Control</h3>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onMoveCurtains(50)">-50 %</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onMoveCurtains(25)">-25 %</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onMoveCurtains(10)">-10 %</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onMoveCurtains(2)">-2 %</button></div>
+                    </div>
+                    <div class="row">&nbsp;</div>
+                    <div class="row">
+                        <div class="col"><button type="button" class="btn btn-danger" onclick="onStopCurtains()">STOP</button></div>
+                    </div>
+                    <div class="row">&nbsp;</div>
+                    <div class="row">
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onMoveCurtains(-2)">+2 %</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onMoveCurtains(-10)">+10 %</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onMoveCurtains(-25)">+25 %</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onMoveCurtains(-50)">+50 %</button></div>
+                    </div>
+                    <div class="row">&nbsp;</div>
+                    <div class="row">&nbsp;</div>
+                    <div class="row">
+                        <div class="col">
+                            <button type="button" class="btn btn-light" onclick="onOpenCurtains()">Open Curtains</button>
+                        </div>
+                        <div class="col">
+                            <button type="button" class="btn btn-dark" onclick="onCloseCurtains()">Close Curtains</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade w-100" id="pills-calibration" role="tabpanel" aria-labelledby="pills-calibration-tab">
+                <div id="ui-start-calibration" class="container"  style="width: 100%">
+                    <div class="row">&nbsp;</div>
+                    <div class="row justify-content-center"  style="width: 100%">
+                        <div class="col ">
+                            <button type="button" class="btn btn-primary" onclick="onStartCalibration()">Start Calibration</button>
+                        </div>
+                    </div>
+                    <div class="row">&nbsp;</div>
+                </div>
+                <div id="ui-calibration" style="display: none" class="container">
+                    <div class="row">
+                        <div class="col">
+                            <h3>Adjust curtains position until fully closed</h3>
+                        </div>
+                    </div>
+                    <div class="row">&nbsp;</div>
+                    <div class="row">
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onCalibrationMove(-10)">-10</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onCalibrationMove(-5)">-5</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onCalibrationMove(-1)">-1</button></div>
+                        <div class="col"><button type="button" class="btn btn-danger"  onclick="onStopCurtains()">STOP</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onCalibrationMove(1)">+1</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onCalibrationMove(5)">+5</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="onCalibrationMove(10)">+10</button></div>
+                    </div>
+                    <div class="row">&nbsp;</div>
+                    <div class="row">
+                        <div class="col"><button type="button" class="btn btn-success" onclick="onFinishCalibration()">Finish Calibration</button></div>
+                        <div class="col"><button type="button" class="btn btn-warning" onclick="onCancelCalibration()">Cancel Calibration</button></div>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade w-100" id="pills-system" role="tabpanel" aria-labelledby="pills-system-tab">
+                <div class="container w-100"></div>
+                    <div class="row">
+                        <div class="col">
+                            <h3>Smart Curtains</h3>
+                        </div>
+                    </div>
+                    <div class="row"><div class="col">Firmware Version: <span id="fw_version">UNKNOWN</span></div></div>
+                    <div class="row">&nbsp;</div>
+                    <div class="row">
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="alert('TODO')">Manual Update</button></div>
+                        <div class="col"><button type="button" class="btn btn-primary" onclick="enableInstallationMode()">Installation Mode</button></div>
+                        <div class="col"><button type="button" class="btn btn-warning" onclick="rebootDevice()">Reboot Device</button></div>
+                    </div>
+                    <div class="row">&nbsp;</div>
+                    <div class="row"><div class="col"><button type="button" class="btn btn-danger" onclick="factoryReset()">Factory Reset</button></div></div>
+            </div>
+            <div class="tab-pane fade w-100 show active" id="pills-installation" role="tabpanel" aria-labelledby="pills-installation-tab">
+                <div class="container w-100"></div>
+                    <div class="row">
+                        <div class="col">
+                            <h3>Curtains Installation</h3>
+                        </div>
+                    </div>
+                    <div class="row"><div class="col">Press and hold the limit switch on the side of the device to rotare the spindle.</div></div>
+                    <div class="row"><div class="col">Quickly double press the limit switch change direction of the rotation.</div></div>
+                    <div class="row">&nbsp;</div>
+                    <div class="row"><div class="col">After finishing installing the curtains please press the button bellow. This will cause device to reboot and make it operable.</div></div>
+                    <div class="row">&nbsp;</div>
+                    <div class="row">
+                        <div class="col">
+                            <button type="button" class="btn btn-primary" onclick="finishInstallation()">Finish Installation</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+)=====";

@@ -17,31 +17,22 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "LimitSwitch.hpp"
+#ifndef BUZZER_HPP
+#define BUZZER_HPP
 
-#define PIN_SWITCH_C (14)
-#define PIN_SWITCH_NO (16)
+#include <Arduino.h>
 
-void LimitSwitch::initialize(ILimitSwitchListener* listener) {
-    mListener = listener;
+class Buzzer {
+public:
+    void initialize();
 
-    pinMode(PIN_SWITCH_C, OUTPUT);
-    pinMode(PIN_SWITCH_NO, INPUT_PULLDOWN_16);
-    digitalWrite(PIN_SWITCH_C, HIGH);
-}
+    void buzz(const int durationMs);
+    void buzzLetter(const char c);
 
-void LimitSwitch::processEvents() {
-    if (nullptr != mListener) {
-        const int switchState = digitalRead(PIN_SWITCH_NO);
+private:
+    void buzzLong();
+    void buzzShort();
+    void waitGap();
+};
 
-        if (switchState != mPrevSwitchState) {
-            mPrevSwitchState = switchState;
-
-            if (switchState == HIGH) {
-                mListener->onLimitSwitchPressed();
-            } else {
-                mListener->onLimitSwitchReleased();
-            }
-        }
-    }
-}
+#endif  // BUZZER_HPP

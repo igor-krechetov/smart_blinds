@@ -1,56 +1,122 @@
 /*
- * Copyright (C) 2022 Igor Krechetov
- * Distributed under MIT License. See file LICENSE for details (https://opensource.org/licenses/MIT)
- */
+Copyright (C) 2023 Ihor Krechetov
+
+This file is part of SmartCurtains program.
+
+SmartCurtains program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+SmartCurtains program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "HomeAssistantIntegration.hpp"
+
 #include <ArduinoJson.h>
+
 #include "LoggingHelper.hpp"
 
-#define TOPIC_PREFIX            "SmartCurtains/"
-#define HA_DISCOVERY_PREFIX     "homeassistant"
-#define TOPIC_STATE             "/state"
-#define TOPIC_AVAILABILITY      "/available"
-#define TOPIC_COMMANDS          "/ctrl"
-#define TOPIC_POSITION          "/pos"
-#define TOPIC_SET_POSITION      "/pos/set"
-#define TOPIC_HA_STATUS         F("homeassistant/status")
+#define TOPIC_PREFIX "SmartCurtains/"
+#define HA_DISCOVERY_PREFIX "homeassistant"
+#define TOPIC_STATE "/state"
+#define TOPIC_AVAILABILITY "/available"
+#define TOPIC_COMMANDS "/ctrl"
+#define TOPIC_POSITION "/pos"
+#define TOPIC_SET_POSITION "/pos/set"
+#define TOPIC_HA_STATUS F("homeassistant/status")
 
-void HomeAssistantIntegration::initialize(IHomeAssistantListener *listener)
-{
+// NOTE: make sure to sync with TOPIC_AVAILABILITY and other macroses
+const char gDiscoveryJsonTemplate[] PROGMEM = R"===(
+{"~":"","name":"SmartCurtains","uniq_id":"","dev_cla":"curtain","avty_t":"~/available","cmd_t":"~/ctrl","stat_t":"~/state","pos_t":"~/pos","set_pos_t":"~/pos/set","set_pos_tpl":"{{ position }}","pos_tpl":"{{ value }}","val_tpl":"{{ value }}","stat_open":"open","stat_opening":"opening","stat_clsd":"closed","stat_closing":"closing","avty_tpl":"{{ value }}","pl_avail":"on","pl_not_avail":"off","payload_open":"open","payload_close":"close","payload_stop":"stop","pos_open":100,"pos_clsd":0,"opt":false,"dev":{"name":"Wemos SmartCurtains","ids":[],"mf":"Igor Krechetov","sw":"","mdl":"R1"}}
+)===";
+
+// TODO: move to common location
+#define FV(_progStr) reinterpret_cast<const __FlashStringHelper*>(_progStr)
+
+/*
+{"~":"SmartCurtains/6404654","name":"SmartCurtains","uniq_id":"6404654","dev_cla":"curtain","avty_t":"~/available","cmd_t":"~/ctrl","stat_t":"~/state","pos_t":"~/pos","set_pos_t":"~/pos/set","set_pos_tpl":"{{
+position }}","pos_tpl":"{{ value }}","val_tpl":"{{ value
+}}","stat_open":"open","stat_opening":"opening","stat_clsd":"closed","stat_closing":"closing","avty_tpl":"{{ value
+}}","pl_avail":"on","pl_not_avail":"off","payload_open":"open","payload_close":"close","payload_stop":"stop","pos_open":100,"pos_clsd":0,"opt":false,"dev":{"name":"Wemos
+SmartCurtains","ids":["6404654"],"mf":"Igor Krechetov","sw":"0.1","mdl":"P1"}}
+*/
+
+HomeAssistantIntegration::HomeAssistantIntegration(ConfigurationManager& config) : mConfig(config) {}
+
+bool HomeAssistantIntegration::initialize(IHomeAssistantListener* listener) {
+    bool res = false;
+
     mListener = listener;
-    snprintf(mObjectID, sizeof(mObjectID), "%" PRIu32, ESP.getChipId());
-    snprintf(mTopicPrefix, sizeof(mTopicPrefix), TOPIC_PREFIX "%s", mObjectID);
+
+    if (nullptr != mListener) {
+        snprintf(mObjectID, sizeof(mObjectID), "%" PRIu32, ESP.getChipId());
+        snprintf(mTopicPrefix, sizeof(mTopicPrefix), TOPIC_PREFIX "%s", mObjectID);
+        snprintf(mTopicConfig, sizeof(mTopicConfig), HA_DISCOVERY_PREFIX "/cover/%s/config", mObjectID);
+        res = true;
+    }
+
+    return res;
 }
 
-bool HomeAssistantIntegration::start(ConfigurationManager &config)
-{
-    // TODO: replace String with char*
-    std::list<String> defaultSubscriptions;
-    
-    defaultSubscriptions.push_back(getTopicPath(F(TOPIC_COMMANDS)));
-    defaultSubscriptions.push_back(getTopicPath(F(TOPIC_SET_POSITION)));
-    defaultSubscriptions.push_back(getTopicPath(F(TOPIC_POSITION)));
-    defaultSubscriptions.push_back(TOPIC_HA_STATUS);
-    
-    return mClient.initialize(config, this, defaultSubscriptions);
+bool HomeAssistantIntegration::start() {
+    bool res = false;
+
+    if (nullptr != mListener) {
+        PRINT_FREE_HEAP();
+        // TODO: replace String with char*
+        std::list<String> defaultSubscriptions;
+
+        defaultSubscriptions.push_back(getTopicPath(F(TOPIC_COMMANDS)));
+        defaultSubscriptions.push_back(getTopicPath(F(TOPIC_SET_POSITION)));
+        defaultSubscriptions.push_back(getTopicPath(F(TOPIC_POSITION)));
+        defaultSubscriptions.push_back(TOPIC_HA_STATUS);
+        PRINT_FREE_HEAP();
+
+        res = mClient.initialize(mConfig, this, defaultSubscriptions);
+        PRINT_FREE_HEAP();
+    }
+
+    return res;
 }
 
-void HomeAssistantIntegration::processEvents()
-{
+void HomeAssistantIntegration::reconnect() {
+    mClient.disconnect();
+
+    if (false == mClient.connect()) {
+        mListener->onMqttConnectionLost();
+    }
+}
+
+void HomeAssistantIntegration::disconnect() {
+    mClient.disconnect();
+}
+
+bool HomeAssistantIntegration::isConnected() {
+    return mClient.isConnected();
+}
+
+void HomeAssistantIntegration::processEvents() {
     mClient.processEvents();
 }
 
 void HomeAssistantIntegration::updateAvailability(const DeviceAvailability availability) {
-    mClient.publishTopic(getTopicPath(F(TOPIC_AVAILABILITY)), (DeviceAvailability::ONLINE == availability ? F("on") : F("off")), false);
+    mClient.publishTopic(getTopicPath(F(TOPIC_AVAILABILITY)),
+                         (DeviceAvailability::ONLINE == availability ? F("on") : F("off")),
+                         false);
+    processEvents();  // process events to force send data
 }
 
-void HomeAssistantIntegration::updateDeviceState(const CoverState state)
-{
+void HomeAssistantIntegration::updateDeviceState(const CoverState state) {
     String value;
 
-    switch(state)
-    {
+    switch (state) {
         case CoverState::OPEN:
             value = F("open");
             break;
@@ -72,33 +138,29 @@ void HomeAssistantIntegration::updateDeviceState(const CoverState state)
     mClient.publishTopic(getTopicPath(F(TOPIC_STATE)), value, false);
 }
 
-void HomeAssistantIntegration::updateCurrentPosition(const int pos)
-{
-    if ((pos >= 0) && (pos <= 100)){
-        mLastPosition = pos;
-        mClient.publishTopic(getTopicPath(F(TOPIC_POSITION)), String(pos), true);
+void HomeAssistantIntegration::updateCurrentPosition(const int pos) {
+    if ((pos >= 0) && (pos <= 100)) {
+        // reverse position. HA expects 0 as closed and 100 as open, but we use opposite
+        mLastPosition = 100 - pos;
+        mClient.publishTopic(getTopicPath(F(TOPIC_POSITION)), String(mLastPosition), true);
     } else {
         ERROR_ARGS("invalid pos=%d (only 0~100 allowed)", pos);
     }
 }
 
-int HomeAssistantIntegration::getLastPosition() const
-{
-    return mLastPosition;
+int HomeAssistantIntegration::getLastPosition() const {
+    return (100 - mLastPosition);
 }
 
-void HomeAssistantIntegration::onMqttConnected()
-{
+void HomeAssistantIntegration::onMqttConnected() {
     sendDiscoveryPayload();
 }
 
-void HomeAssistantIntegration::onMqttDisconnected()
-{
-    // TODO: reconnect client after timeout
+void HomeAssistantIntegration::onMqttDisconnected() {
+    mListener->onMqttConnectionLost();
 }
 
-void HomeAssistantIntegration::onTopicUpdated(char *topic, char *payload, unsigned int length)
-{
+void HomeAssistantIntegration::onTopicUpdated(char* topic, char* payload, unsigned int length) {
     TRACE_ARGS("HomeAssistantIntegration: topic<%s>, len=%u", topic, length);
 
     if ((nullptr != payload) && (length > 0)) {
@@ -111,18 +173,24 @@ void HomeAssistantIntegration::onTopicUpdated(char *topic, char *payload, unsign
                 mListener->onHaRequestStop();
             } else {
                 ERROR("unknown command");
-                for (int i = 0; i < length; ++i) {
-                    Log.error("%c", payload[i]);
+                for (unsigned int i = 0; i < length; ++i) {
+                    ERROR_ARGS("%c", payload[i]);
                 }
-                Log.error("\n");
             }
         } else if (true == getTopicPath(F(TOPIC_SET_POSITION)).equals(topic)) {
-            mListener->onHaRequestSetPosition(atoi(payload));
+            mListener->onHaRequestSetPosition(100 - atoi(payload));
         } else if (true == getTopicPath(F(TOPIC_POSITION)).equals(topic)) {
-            mLastPosition = atoi(payload);
+            const int prevPos = mLastPosition;
+
+            mLastPosition = atoi(payload);  // TODO: add validation?
+
+            if (INVALID_LAST_POSITION == prevPos) {
+                mListener->onHaLastPositionLoaded();
+            }
         } else if (true == getTopicPath(TOPIC_HA_STATUS).equals(topic)) {
             if (true == comparePayload("online", payload, length)) {
                 mListener->onHaConnected();
+                // TODO: need sendDiscoveryPayload() ??
             } else {
                 mListener->onHaDisconnected();
             }
@@ -134,12 +202,10 @@ void HomeAssistantIntegration::onTopicUpdated(char *topic, char *payload, unsign
     }
 }
 
-bool HomeAssistantIntegration::comparePayload(const char* str, char* payload, unsigned int payloadSize) const
-{
+bool HomeAssistantIntegration::comparePayload(const char* str, char* payload, unsigned int payloadSize) const {
     bool isEqual = false;
 
-    for (int i = 0 ; (i < payloadSize) && (0 != str[i]) ; ++i)
-    {
+    for (unsigned int i = 0; (i < payloadSize) && (0 != str[i]); ++i) {
         isEqual = (str[i] == payload[i]);
 
         if (false == isEqual) {
@@ -150,72 +216,32 @@ bool HomeAssistantIntegration::comparePayload(const char* str, char* payload, un
     return isEqual;
 }
 
-String HomeAssistantIntegration::getTopicPath(const __FlashStringHelper* suffix) const
-{
+String HomeAssistantIntegration::getTopicPath(const __FlashStringHelper* suffix) const {
     return String(mTopicPrefix) + suffix;
 }
 
-void HomeAssistantIntegration::sendDiscoveryPayload()
-{
-    // TODO: remove isDiscoverySent
-    static boolean isDiscoverySent = false;
+void HomeAssistantIntegration::sendDiscoveryPayload() {
+    NOTICE("Sending HA Discovery payload");
+    // NOTE: CRITICAL: make sure to check memory size if values will signifficantly change
+    DynamicJsonDocument payload(1000);
 
-    if (false == isDiscoverySent) {
-        NOTICE("Sending HA Discovery payload");
+    // NOTE: using PROGMEM to reduce stack usage
+    DeserializationError err = deserializeJson(payload, FV(gDiscoveryJsonTemplate));
+    if (DeserializationError::Ok == err) {
+        payload["~"] = mTopicPrefix;
+        payload["uniq_id"] = mObjectID;
+        payload["dev"]["ids"].add(mObjectID);
+        payload["dev"]["sw"] = mConfig.getFirmwareVersion();
 
-        isDiscoverySent = true;
+        std::vector<char> haConfig(650, 0);
+        const int haConfigSize = serializeJson(payload, haConfig.data(), haConfig.size());
 
-        // TODO: can I use PROGMEM for this?
-        StaticJsonDocument<1000> payload;
-
-        payload[F("~")] = mTopicPrefix;
-        payload[F("name")] = F("SmartCurtains");
-        payload[F("uniq_id")] = mObjectID;
-        payload[F("dev_cla")] = F("curtain");
-        payload[F("avty_t")] = F("~" TOPIC_AVAILABILITY);// availability_topic
-        payload[F("cmd_t")] = F("~" TOPIC_COMMANDS);// command_topic
-        payload[F("stat_t")] = F("~" TOPIC_STATE);
-        payload[F("pos_t")] = F("~" TOPIC_POSITION);// position_topic
-        payload[F("set_pos_t")] = F("~" TOPIC_SET_POSITION);// set_position_topic
-
-        payload[F("set_pos_tpl")] = F("{{ position }}");
-        payload[F("pos_tpl")] = F("{{ value }}");// position_template
-
-        payload[F("val_tpl")] = F("{{ value }}"); // TODO: Defines a template that can be used to extract the payload for the state_topic topic.
-        payload[F("stat_open")] = F("open");
-        payload[F("stat_opening")] = F("opening");
-        payload[F("stat_clsd")] = F("closed");
-        payload[F("stat_closing")] = F("closing");
-
-        payload[F("avty_tpl")] = F("{{ value }}");
-        payload[F("pl_avail")] = F("on");
-        payload[F("pl_not_avail")] = F("off");
-
-        payload[F("payload_open")] = F("open");// payload_open
-        payload[F("payload_close")] = F("close");// payload_close
-        payload[F("payload_stop")] = F("stop");// payload_stop
-        payload[F("pos_open")] = 100;
-        payload[F("pos_clsd")] = 0;
-        payload[F("opt")] = false;// optimistic
-
-        JsonObject dev  = payload.createNestedObject("dev");// device
-        dev["name"] = F("Wemos SmartCurtains");
-        JsonArray ids = dev.createNestedArray(F("ids"));
-        ids.add(mObjectID);
-        dev["mf"] = F("Igor Krechetov");
-        dev["sw"] = F("0.1");// TODO: use real version from config
-        dev["mdl"] = F("P1");
-
-        String haConfig;// ~630 bytes
-        char topicConfig[sizeof(HA_DISCOVERY_PREFIX) + sizeof(mObjectID) + 14 + 1] = {0};
-
-        serializeJson(payload, haConfig);
-        snprintf(topicConfig, sizeof(topicConfig), HA_DISCOVERY_PREFIX "/cover/%s/config", mObjectID);
-
-        if (true == mClient.publishTopic(topicConfig, haConfig, true)) {
+        if (true == mClient.publishTopic(mTopicConfig, haConfig.data(), haConfigSize, true)) {
             // NOTE: initially mark our device as unavailable
             updateAvailability(DeviceAvailability::OFFLINE);
             mListener->onHaRegistrationDone();
         }
+    } else {
+        ERROR_ARGS("fatal: can't parse gDiscoveryJsonTemplate <%s>", err.c_str());
     }
 }

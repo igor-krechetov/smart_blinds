@@ -51,19 +51,15 @@ const char gPageSetup[] PROGMEM = R"=====(
                     </tr>
                     <tr>
                         <td>Port:</td>
-                        <td><input name="mqtt_port" type="text" value="9227" /></td>
+                        <td><input name="mqtt_port" type="text" value="9127" /></td>
                     </tr>
                     <tr>
-                        <td>CA Certificate:</td>
-                        <td><input name="mqtt_cert_ca" type="file" /></td>
+                        <td>User:</td>
+                        <td><input name="mqtt_user" type="text" value="" /></td>
                     </tr>
                     <tr>
-                        <td>Client Certificate:</td>
-                        <td><input name="mqtt_cert_client" type="file" /></td>
-                    </tr>
-                    <tr>
-                        <td>Client Key:</td>
-                        <td><input name="mqtt_client_key" type="file" /></td>
+                        <td>Password:</td>
+                        <td><input name="mqtt_pwd" type="password" value="" /></td>
                     </tr>
 
                     <tr><td colspan="2"><hr /></td></tr>
